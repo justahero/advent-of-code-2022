@@ -71,9 +71,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
-    use crate::{parse, part1, part2};
+    use crate::*;
 
     const INPUT: &str = r#"
         vJrwpWtwJgWrhcsFMMfFFhFp
