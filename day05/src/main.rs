@@ -19,6 +19,19 @@ impl SupplyStack {
         }
         Self { stacks }
     }
+
+    /// Applies a single move on the stack
+    pub fn apply(&mut self, mv: &Move) -> anyhow::Result<()> {
+        todo!("")
+    }
+
+    /// Returns the top crates from the stacks, ignores any empty stacks
+    pub fn top(&self) -> String {
+        self.stacks
+            .iter()
+            .filter_map(|stack| stack.first())
+            .collect::<String>()
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -90,13 +103,17 @@ fn parse(input: &str) -> anyhow::Result<(SupplyStack, Vec<Move>)> {
     Ok((stack, moves))
 }
 
-fn part1() {
-    todo!()
+/// Run all moves for crane, re-arrange the stacks
+fn part1(stack: &mut SupplyStack, moves: &[Move]) -> anyhow::Result<String> {
+    for m in moves {
+        stack.apply(m)?;
+    }
+    Ok(stack.top())
 }
 
 fn main() -> anyhow::Result<()> {
-    let input = parse(include_str!("input.txt"))?;
-    // println!("Part 1: {}", part1(&input));
+    let (mut stack, moves) = parse(include_str!("input.txt"))?;
+    println!("Part 1: {}", part1(&mut stack, &moves)?);
 
     Ok(())
 }
@@ -139,8 +156,8 @@ move 1 from 1 to 2
 
     #[test]
     fn check_part1() -> anyhow::Result<()> {
-        let _input = parse(INPUT)?;
-        // assert_eq!(2, part1(&parse(INPUT)));
+        let (mut stack, moves) = parse(INPUT)?;
+        assert_eq!("CMZ", part1(&mut stack, &moves)?);
         Ok(())
     }
 }
