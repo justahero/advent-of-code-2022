@@ -1,19 +1,21 @@
 //! Day 05: Supply Stacks
 
+use std::collections::VecDeque;
+
 use anyhow::anyhow;
 
 #[derive(Debug)]
 pub struct SupplyStack {
-    pub stacks: Vec<Vec<char>>,
+    pub stacks: Vec<VecDeque<char>>,
 }
 
 impl SupplyStack {
     pub fn new(rows: &[Vec<char>]) -> Self {
-        let mut stacks = vec![Vec::with_capacity(rows.len()); rows[0].len()];
+        let mut stacks = vec![VecDeque::with_capacity(rows.len()); rows[0].len()];
         for row in rows {
             for (index, c) in row.iter().enumerate() {
                 if c.is_alphabetic() {
-                    stacks[index].push(*c);
+                    stacks[index].push_back(*c);
                 }
             }
         }
@@ -21,15 +23,24 @@ impl SupplyStack {
     }
 
     /// Applies a single move on the stack
+    ///
+    /// "from" and "to" indices start at `1`.
     pub fn apply(&mut self, mv: &Move) -> anyhow::Result<()> {
-        todo!("")
+        // Good example for ranges, classical for loop
+        for _ in 0..mv.num_crates {
+            let c = self.stacks[mv.from - 1]
+                .pop_front()
+                .ok_or_else(|| anyhow!("Failed to get top element."))?;
+            self.stacks[mv.to - 1].push_front(c);
+        }
+        Ok(())
     }
 
     /// Returns the top crates from the stacks, ignores any empty stacks
     pub fn top(&self) -> String {
         self.stacks
             .iter()
-            .filter_map(|stack| stack.first())
+            .filter_map(|stack| stack.front())
             .collect::<String>()
     }
 }
@@ -37,12 +48,12 @@ impl SupplyStack {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Move {
     pub num_crates: u32,
-    pub from: u32,
-    pub to: u32,
+    pub from: usize,
+    pub to: usize,
 }
 
 impl Move {
-    pub fn new(num_crates: u32, from: u32, to: u32) -> Self {
+    pub fn new(num_crates: u32, from: usize, to: usize) -> Self {
         Self {
             num_crates,
             from,
@@ -75,8 +86,8 @@ peg::parser! {
         rule number() -> u32
             = n:$(['0'..='9']+) { n.parse::<u32>().unwrap() }
 
-        rule digit() -> u32
-            = n:['0'..='9'] { n.to_string().parse::<u32>().unwrap() }
+        rule digit() -> usize
+            = n:['0'..='9'] { n.to_string().parse::<usize>().unwrap() }
 
         /// Parses the line "move 1 from 2 to 1"
         pub rule line() -> Move
@@ -157,6 +168,7 @@ move 1 from 1 to 2
     #[test]
     fn check_part1() -> anyhow::Result<()> {
         let (mut stack, moves) = parse(INPUT)?;
+        println!("STACK: {:?}", stack);
         assert_eq!("CMZ", part1(&mut stack, &moves)?);
         Ok(())
     }
