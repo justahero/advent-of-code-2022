@@ -71,8 +71,8 @@ peg::parser! {
     }
 }
 
-fn parse(input: &str) -> anyhow::Result<SupplyStack> {
-    let (stack, _moves) = input
+fn parse(input: &str) -> anyhow::Result<(SupplyStack, Vec<Move>)> {
+    let (stack, moves) = input
         .split_once("\n\n")
         .ok_or_else(|| anyhow!("Failed to split input"))?;
 
@@ -81,11 +81,13 @@ fn parse(input: &str) -> anyhow::Result<SupplyStack> {
         .filter_map(|line| stack_parser::line(line).ok())
         .collect::<Vec<_>>();
 
-    let stacks = SupplyStack::new(&stacks);
+    let stack = SupplyStack::new(&stacks);
+    let moves = moves
+        .lines()
+        .filter_map(|line| move_parser::line(line).ok())
+        .collect::<Vec<_>>();
 
-    println!("STACKS: {:?}", stacks);
-
-    todo!("")
+    Ok((stack, moves))
 }
 
 fn part1() {
