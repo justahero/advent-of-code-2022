@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 
 use anyhow::anyhow;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SupplyStack {
     pub stacks: Vec<VecDeque<char>>,
 }
@@ -22,15 +22,28 @@ impl SupplyStack {
         Self { stacks }
     }
 
-    /// Applies a single move on the stack
+    /// Applies a single move on the stack, each crate is picked one by one from
+    /// source to target stack, thereby reversing the order of the crates.
     ///
     /// "from" and "to" indices start at `1`.
-    pub fn apply(&mut self, mv: &Move) -> anyhow::Result<()> {
+    pub fn single(&mut self, mv: &Move) -> anyhow::Result<()> {
         // Good example for ranges, classical for loop
         for _ in 0..mv.num_crates {
             let c = self.stacks[mv.from - 1]
                 .pop_front()
                 .ok_or_else(|| anyhow!("Failed to get top element."))?;
+            self.stacks[mv.to - 1].push_front(c);
+        }
+        Ok(())
+    }
+
+    /// Applies a single move on the stack, the pile of crates are picked at once
+    /// and moved from source to target stack, the order of crates does not change.
+    pub fn multi(&mut self, mv: &Move) -> anyhow::Result<()> {
+        for index in (0..mv.num_crates as usize).rev() {
+            let c = self.stacks[mv.from - 1]
+                .remove(index)
+                .ok_or_else(|| anyhow!("Failed to remove element at {}", index))?;
             self.stacks[mv.to - 1].push_front(c);
         }
         Ok(())
@@ -117,14 +130,22 @@ fn parse(input: &str) -> anyhow::Result<(SupplyStack, Vec<Move>)> {
 /// Run all moves for crane, re-arrange the stacks
 fn part1(stack: &mut SupplyStack, moves: &[Move]) -> anyhow::Result<String> {
     for m in moves {
-        stack.apply(m)?;
+        stack.single(m)?;
+    }
+    Ok(stack.top())
+}
+
+fn part2(stack: &mut SupplyStack, moves: &[Move]) -> anyhow::Result<String> {
+    for m in moves {
+        stack.multi(m)?;
     }
     Ok(stack.top())
 }
 
 fn main() -> anyhow::Result<()> {
-    let (mut stack, moves) = parse(include_str!("input.txt"))?;
-    println!("Part 1: {}", part1(&mut stack, &moves)?);
+    let (stack, moves) = parse(include_str!("input.txt"))?;
+    println!("Part 1: {}", part1(&mut stack.clone(), &moves)?);
+    println!("Part 2: {}", part2(&mut stack.clone(), &moves)?);
 
     Ok(())
 }
@@ -168,8 +189,14 @@ move 1 from 1 to 2
     #[test]
     fn check_part1() -> anyhow::Result<()> {
         let (mut stack, moves) = parse(INPUT)?;
-        println!("STACK: {:?}", stack);
         assert_eq!("CMZ", part1(&mut stack, &moves)?);
+        Ok(())
+    }
+
+    #[test]
+    fn check_part2() -> anyhow::Result<()> {
+        let (mut stack, moves) = parse(INPUT)?;
+        assert_eq!("MCD", part2(&mut stack, &moves)?);
         Ok(())
     }
 }
