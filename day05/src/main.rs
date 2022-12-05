@@ -9,14 +9,11 @@ struct SupplyStack {
 
 impl SupplyStack {
     pub fn new(rows: &[Vec<char>]) -> Self {
-        // transpose rows into columns
-        // following article: https://www.hackertouch.com/matrix-transposition-in-rust.html
         let mut stacks = vec![Vec::with_capacity(rows.len()); rows[0].len()];
         for row in rows {
-            for index in 0..row.len() {
-                let c = row[index];
+            for (index, c) in row.iter().enumerate() {
                 if c.is_alphabetic() {
-                    stacks[index].push(c);
+                    stacks[index].push(*c);
                 }
             }
         }
@@ -25,7 +22,6 @@ impl SupplyStack {
     }
 }
 
-// TODO change into Crate, using enum?
 peg::parser! {
     grammar stack_parser() for str {
         rule number_slot() -> char
