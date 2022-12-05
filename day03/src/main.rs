@@ -19,7 +19,7 @@ fn parse(input: &str) -> Vec<&str> {
         .collect_vec()
 }
 
-fn value(c: char) -> u32 {
+fn get_priority(c: char) -> u32 {
     match c {
         'a'..='z' => c as u32 - 96,
         'A'..='Z' => c as u32 - 38,
@@ -38,7 +38,7 @@ fn part1(rucksacks: &[&str]) -> u32 {
             let right = right.chars().collect::<HashSet<_>>();
             left.intersection(&right).next().unwrap().clone()
         })
-        .map(value)
+        .map(get_priority)
         .sum()
 }
 
@@ -59,7 +59,7 @@ fn part2(rucksacks: &[&str]) -> u32 {
                 .unwrap()
                 .clone()
         })
-        .map(value)
+        .map(get_priority)
         .sum()
 }
 
@@ -71,7 +71,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parse, part1, part2};
+    use crate::*;
 
     const INPUT: &str = r#"
         vJrwpWtwJgWrhcsFMMfFFhFp
