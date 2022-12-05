@@ -1,21 +1,21 @@
 //! Day 05: Supply Stacks
 
-use std::collections::VecDeque;
-
 use anyhow::anyhow;
 
 #[derive(Debug, Clone)]
 pub struct SupplyStack {
-    pub stacks: Vec<VecDeque<char>>,
+    pub stacks: Vec<Vec<char>>,
 }
 
 impl SupplyStack {
+    /// A slightly better handling might have been to put all stacks into a HashMap, due to indices starting with `1`
+    /// Found this quite neat "transpose" implementation, slightly adjusted to skip non-alphabetical characters
     pub fn new(rows: &[Vec<char>]) -> Self {
-        let mut stacks = vec![VecDeque::with_capacity(rows.len()); rows[0].len()];
+        let mut stacks = vec![Vec::with_capacity(rows.len()); rows[0].len()];
         for row in rows {
             for (index, c) in row.iter().enumerate() {
                 if c.is_alphabetic() {
-                    stacks[index].push_back(*c);
+                    stacks[index].push(*c);
                 }
             }
         }
@@ -28,11 +28,10 @@ impl SupplyStack {
     /// "from" and "to" indices start at `1`.
     pub fn single(&mut self, mv: &Move) -> anyhow::Result<()> {
         // Good example for ranges, classical for loop
+        // Not the fastest way to "move" crates, but it's ok
         for _ in 0..mv.num_crates {
-            let c = self.stacks[mv.from - 1]
-                .pop_front()
-                .ok_or_else(|| anyhow!("Failed to get top element."))?;
-            self.stacks[mv.to - 1].push_front(c);
+            let c = self.stacks[mv.from - 1].remove(0);
+            self.stacks[mv.to - 1].insert(0, c);
         }
         Ok(())
     }
@@ -41,10 +40,8 @@ impl SupplyStack {
     /// and moved from source to target stack, the order of crates does not change.
     pub fn multi(&mut self, mv: &Move) -> anyhow::Result<()> {
         for index in (0..mv.num_crates as usize).rev() {
-            let c = self.stacks[mv.from - 1]
-                .remove(index)
-                .ok_or_else(|| anyhow!("Failed to remove element at {}", index))?;
-            self.stacks[mv.to - 1].push_front(c);
+            let c = self.stacks[mv.from - 1].remove(index);
+            self.stacks[mv.to - 1].insert(0, c);
         }
         Ok(())
     }
@@ -53,7 +50,7 @@ impl SupplyStack {
     pub fn top(&self) -> String {
         self.stacks
             .iter()
-            .filter_map(|stack| stack.front())
+            .filter_map(|stack| stack.first())
             .collect::<String>()
     }
 }
@@ -129,6 +126,7 @@ fn parse(input: &str) -> anyhow::Result<(SupplyStack, Vec<Move>)> {
 
 /// Run all moves for crane, re-arrange the stacks
 fn part1(stack: &mut SupplyStack, moves: &[Move]) -> anyhow::Result<String> {
+    // using `?` operator to return an `Err` works in a `for` loop, but not from a closure
     for m in moves {
         stack.single(m)?;
     }
