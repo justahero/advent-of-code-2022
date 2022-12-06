@@ -7,35 +7,34 @@ use itertools::Itertools;
 /// Detects the start of packet marker, a four letter sequence where all letters are different
 ///
 /// The first position of such a sequence is returned.
-fn marker_pos(datastream: &str) -> Option<usize> {
-    const NUM_ELEMENTS: usize = 4;
-    datastream
-        .chars()
-        .tuple_windows::<(_, _, _, _)>()
-        .into_iter()
-        .enumerate()
-        .map(|(index, (c1, c2, c3, c4))| {
-            (index, vec![c1, c2, c3, c4].iter().collect::<HashSet<_>>().len())
-        })
-        .find(|(_, count)| *count == NUM_ELEMENTS)
-        .map(|(index, _)| index + 4)
+fn marker_pos(datastream: &str, distinct: usize) -> Option<usize> {
+    let datastream = datastream.chars().collect_vec();
+    for index in 0..(datastream.len() - distinct) {
+        let chars = datastream[index..index + distinct].iter().collect::<HashSet<_>>();
+        if chars.len() == distinct {
+            return Some(index + distinct);
+        }
+    }
+
+    None
 }
 
 fn parse(input: &str) -> Vec<&str> {
     input.lines().map(str::trim).collect::<Vec<_>>()
 }
 
-fn part1(lines: &[&str]) -> u32 {
-    lines
-        .iter()
-        .filter_map(|line| marker_pos(line))
-        .map(|v| v as u32 + 3)
-        .sum()
+fn part1(lines: &[&str]) -> usize {
+    lines.iter().filter_map(|line| marker_pos(line, 4)).sum()
+}
+
+fn part2(lines: &[&str]) -> usize {
+    lines.iter().filter_map(|line| marker_pos(line, 14)).sum()
 }
 
 fn main() {
     let lines = parse(include_str!("input.txt"));
     println!("Part 1: {}", part1(&lines));
+    println!("Part 2: {}", part2(&lines));
 }
 
 #[cfg(test)]
@@ -44,10 +43,19 @@ mod tests {
 
     #[test]
     fn check_part1() {
-        assert_eq!(Some(7), marker_pos("mjqjpqmgbljsphdztnvjfqwrcgsmlb"));
-        assert_eq!(Some(5), marker_pos("bvwbjplbgvbhsrlpgdmjqwftvncz"));
-        assert_eq!(Some(6), marker_pos("nppdvjthqldpwncqszvftbrmjlhg"));
-        assert_eq!(Some(10), marker_pos("nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg"));
-        assert_eq!(Some(11), marker_pos("zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw"));
+        assert_eq!(7, part1(&["mjqjpqmgbljsphdztnvjfqwrcgsmlb"]));
+        assert_eq!(5, part1(&["bvwbjplbgvbhsrlpgdmjqwftvncz"]));
+        assert_eq!(6, part1(&["nppdvjthqldpwncqszvftbrmjlhg"]));
+        assert_eq!(10, part1(&["nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg"]));
+        assert_eq!(11, part1(&["zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw"]));
+    }
+
+    #[test]
+    fn check_part2() {
+        assert_eq!(19, part2(&["mjqjpqmgbljsphdztnvjfqwrcgsmlb"]));
+        assert_eq!(23, part2(&["bvwbjplbgvbhsrlpgdmjqwftvncz"]));
+        assert_eq!(23, part2(&["nppdvjthqldpwncqszvftbrmjlhg"]));
+        assert_eq!(29, part2(&["nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg"]));
+        assert_eq!(26, part2(&["zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw"]));
     }
 }
