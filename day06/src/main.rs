@@ -1,4 +1,11 @@
-//! Day 06: Supply Stacks
+//! Day 06: Tuning Trouble
+
+/// Detects the start of packet marker, a four letter sequence where all letters are different
+///
+/// The first position of such a sequence is returned.
+fn find_start_marker(datastream: &str) -> Option<u32> {
+    None
+}
 
 fn parse(input: &str) {
     todo!("")
@@ -14,5 +21,7 @@ mod tests {
 
     #[test]
     fn check_part1() {
+        let input = "mjqjpqmgbljsphdztnvjfqwrcgsmlb";
+        assert_eq!(Some(7), find_start_marker(input));
     }
 }
