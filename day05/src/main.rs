@@ -30,6 +30,9 @@ impl SupplyStack {
         // Good example for ranges, classical for loop
         // Not the fastest way to "move" crates, but it's ok
         for _ in 0..mv.num_crates {
+            if self.stacks[mv.from - 1].is_empty() {
+                return Err(anyhow!("Cannot take crate from empty stack"));
+            }
             let c = self.stacks[mv.from - 1].remove(0);
             self.stacks[mv.to - 1].insert(0, c);
         }
