@@ -75,7 +75,7 @@ impl Display for FileEntry {
 #[derive(Debug)]
 struct DirEntry {
     name: String,
-    entries: BTreeMap<String, Box<Entry>>,
+    entries: BTreeMap<String, Entry>,
 }
 
 impl DirEntry {
@@ -87,13 +87,12 @@ impl DirEntry {
     }
 
     pub fn add_dir(&mut self, name: &str) {
-        self.entries
-            .insert(name.to_string(), Box::new(Entry::dir(name)));
+        self.entries.insert(name.to_string(), Entry::dir(name));
     }
 
     pub fn add_file(&mut self, name: &str, size: u64) {
         self.entries
-            .insert(name.to_string(), Box::new(Entry::file(name, size)));
+            .insert(name.to_string(), Entry::file(name, size));
     }
 
     pub fn size(&self) -> u64 {
@@ -131,7 +130,7 @@ impl Entry {
     /// TODO is there a way to change the function signature?
     pub fn get_dir(&mut self, name: &str) -> Option<&mut Entry> {
         match self {
-            Entry::Directory(dir) => dir.entries.get_mut(name).map(|b| b.as_mut()),
+            Entry::Directory(dir) => dir.entries.get_mut(name),
             Entry::File(_) => None,
         }
     }
