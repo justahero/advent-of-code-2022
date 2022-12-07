@@ -1,7 +1,6 @@
 //! Day 07:
 
 use anyhow::anyhow;
-use itertools::Itertools;
 
 use std::{
     collections::BTreeMap,
@@ -39,6 +38,9 @@ peg::parser! {
     }
 }
 
+const TOTAL_DISK_SPACE: u64 = 70_000_000;
+const UNUSED_DISK_SPACE: u64 = 30_000_000;
+
 #[derive(Debug, PartialEq)]
 enum Command {
     Cd(String),
@@ -66,6 +68,10 @@ impl FileEntry {
             size,
         }
     }
+
+    pub fn size(&self) -> u64 {
+        self.size
+    }
 }
 
 impl Display for FileEntry {
@@ -77,7 +83,6 @@ impl Display for FileEntry {
 #[derive(Debug)]
 struct DirEntry {
     name: String,
-    // entries: Vec<Box<Entry>>,
     entries: BTreeMap<String, Box<Entry>>,
 }
 
@@ -97,6 +102,10 @@ impl DirEntry {
     pub fn add_file(&mut self, name: &str, size: u64) {
         self.entries
             .insert(name.to_string(), Box::new(Entry::file(name, size)));
+    }
+
+    pub fn size(&self) -> u64 {
+        self.entries.iter().map(|(_, entry)| entry.size()).sum()
     }
 }
 
@@ -127,6 +136,7 @@ impl Entry {
         Ok(())
     }
 
+    /// TODO is there a way to change the function signature?
     pub fn get_dir(&mut self, name: &str) -> Option<&mut Box<Entry>> {
         match self {
             Entry::Directory(dir) => dir.entries.get_mut(name),
@@ -140,6 +150,14 @@ impl Entry {
 
     pub fn file(name: &str, size: u64) -> Self {
         Self::File(FileEntry::new(name, size))
+    }
+
+    /// Returns the size of the directory, this needs to be a directory.
+    pub fn size(&self) -> u64 {
+        match self {
+            Entry::Directory(dir) => dir.size(),
+            Entry::File(file) => file.size(),
+        }
     }
 
     pub fn print(&self) {
@@ -166,7 +184,6 @@ fn build_hierarchy<'a>(
     parent: &mut Entry,
     lines: &mut impl Iterator<Item = &'a Line>,
 ) -> anyhow::Result<()> {
-    println!("BUILD: {:?}", parent);
     loop {
         match lines.next() {
             Some(Line::Cmd(Command::Cd(dir))) => match dir.as_ref() {
@@ -204,13 +221,44 @@ fn parse(input: &str) -> Entry {
     let mut root = Entry::root();
     build_hierarchy(&mut root, &mut lines.iter().skip(1)).expect("Failed to build file hierarchy");
 
-    root.print();
+    // root.print();
     root
+}
+
+/// Returns total size of all directories which contents are smaller than 100.000
+fn part1(root: &Entry) -> u64 {
+    let mut total = Vec::new();
+    part1_inner(root, &mut total);
+    total.iter().sum()
+}
+
+fn part1_inner(entry: &Entry, sizes: &mut Vec<u64>) {
+    match entry {
+        Entry::Directory(dir) => {
+            let size = dir.size();
+            if size < 100_000 {
+                sizes.push(size);
+            }
+            // check all inner directories, traverse lower
+            for (_, entry) in dir.entries.iter() {
+                part1_inner(&entry, sizes)
+            }
+        }
+        _ => (),
+    }
+}
+
+/// Check all directories, from all directories that free enough space to be above 30_000_000.
+/// The one directory closest but above this threshold is the directory to be deleted. Its size
+/// is returned as an answer
+fn part2(root: &Entry) -> u64 {
+    // TODO refactor, return sizes for all directories, then do the calculation after that.
+    todo!()
 }
 
 fn main() {
     let entry = parse(include_str!("input.txt"));
-    // println!("Part 1: {}", part1(&lines));
+    println!("Part 1: {}", part1(&entry));
 }
 
 #[cfg(test)]
@@ -263,10 +311,21 @@ mod tests {
     }
 
     #[test]
-    fn check_part1() {
-        let entry = parse(INPUT);
+    fn check_tree_sizes() {
+        let mut entry = parse(INPUT);
+        assert_eq!(94853, entry.get_dir("a").unwrap().size(),);
+        assert_eq!(48381165, entry.size(),);
     }
 
     #[test]
-    fn check_part2() {}
+    fn check_part1() {
+        let entry = parse(INPUT);
+        assert_eq!(95437, part1(&entry));
+    }
+
+    #[test]
+    fn check_part2() {
+        let entry = parse(INPUT);
+        assert_eq!(24933642, part2(&entry));
+    }
 }
