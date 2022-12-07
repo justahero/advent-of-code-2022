@@ -1,5 +1,44 @@
 //! Day 07:
 
+peg::parser! {
+    grammar line_parser() for str {
+        rule dots() -> String
+            = ".." { String::from("..") }
+
+        rule root() -> String
+            = "/" { String::from("/") }
+
+        rule label() -> String
+            = l:$(['a'..='z']+) { l.to_string() }
+
+        rule cd() -> Line
+            = "$ cd " l:(root() / dots() / label()) { Line::Cd(l.into()) }
+
+        rule ls() -> Line
+            = "$ ls" { Line::Ls }
+
+        rule filename() -> String
+            = l:$(['a'..='z']+['.']?['a'..='z']*) { l.to_string() }
+
+        rule file() -> Line
+            = n:$(['0'..='9']+) " " l:filename() { Line::File(n.parse::<u64>().unwrap(), l.into()) }
+
+        rule dir() -> Line
+            = "dir " l:label() { Line::Dir(l.to_string()) }
+
+        pub(crate) rule line() -> Line
+            = cd() / ls() / file() / dir()
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum Line {
+    Cd(String),
+    Ls,
+    Dir(String),
+    File(u64, String),
+}
+
 /// A single file entry with name & size
 #[derive(Debug)]
 struct FileEntry {
@@ -34,8 +73,14 @@ impl Entry {
     }
 }
 
-fn parse(input: &str) -> Vec<&str> {
-    input.lines().map(str::trim).collect::<Vec<_>>()
+fn parse(input: &str) -> Entry {
+    let output = input
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>();
+
+    Entry::root()
 }
 
 fn main() {
@@ -72,6 +117,19 @@ mod tests {
         5626152 d.ext
         7214296 k
     "#;
+
+    #[test]
+    fn check_line_parser() {
+        assert_eq!(Ok(Line::Cd("/".into())), line_parser::line("$ cd /"));
+        assert_eq!(Ok(Line::Ls), line_parser::line("$ ls"));
+        assert_eq!(Ok(Line::Dir("a".into())), line_parser::line("dir a"));
+        assert_eq!(
+            Ok(Line::File(14848514, "b.txt".into())),
+            line_parser::line("14848514 b.txt")
+        );
+        assert_eq!(Ok(Line::File(584, "i".into())), line_parser::line("584 i"));
+        assert_eq!(Ok(Line::Cd("..".into())), line_parser::line("$ cd .."));
+    }
 
     #[test]
     fn check_part1() {
