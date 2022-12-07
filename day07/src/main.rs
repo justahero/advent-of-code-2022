@@ -19,10 +19,10 @@ peg::parser! {
             = l:$(['a'..='z']+) { l.to_string() }
 
         rule cd() -> Line
-            = "$ cd " l:(root() / dots() / label()) { Line::Cmd(Command::Cd(l.into())) }
+            = "$ cd " l:(root() / dots() / label()) { Line::Cd(l.into()) }
 
         rule ls() -> Line
-            = "$ ls" { Line::Cmd(Command::Ls) }
+            = "$ ls" { Line::Ls }
 
         rule filename() -> String
             = l:$(['a'..='z']+['.']?['a'..='z']*) { l.to_string() }
@@ -39,14 +39,9 @@ peg::parser! {
 }
 
 #[derive(Debug, PartialEq)]
-enum Command {
+enum Line {
     Cd(String),
     Ls,
-}
-
-#[derive(Debug, PartialEq)]
-enum Line {
-    Cmd(Command),
     Dir(String),
     File(u64, String),
 }
@@ -196,7 +191,7 @@ fn build_hierarchy<'a>(
 ) -> anyhow::Result<()> {
     loop {
         match lines.next() {
-            Some(Line::Cmd(Command::Cd(dir))) => match dir.as_ref() {
+            Some(Line::Cd(dir)) => match dir.as_ref() {
                 ".." => return Ok(()),
                 dir => {
                     let entry = parent
@@ -205,7 +200,7 @@ fn build_hierarchy<'a>(
                     build_hierarchy(entry, lines)?;
                 }
             },
-            Some(Line::Cmd(Command::Ls)) => {
+            Some(Line::Ls) => {
                 // TODO do we need to do something here?
             }
             Some(Line::Dir(dir)) => {
@@ -303,21 +298,15 @@ mod tests {
 
     #[test]
     fn check_line_parser() {
-        assert_eq!(
-            Ok(Line::Cmd(Command::Cd("/".into()))),
-            line_parser::line("$ cd /")
-        );
-        assert_eq!(Ok(Line::Cmd(Command::Ls)), line_parser::line("$ ls"));
+        assert_eq!(Ok(Line::Cd("/".into())), line_parser::line("$ cd /"));
+        assert_eq!(Ok(Line::Ls), line_parser::line("$ ls"));
         assert_eq!(Ok(Line::Dir("a".into())), line_parser::line("dir a"));
         assert_eq!(
             Ok(Line::File(14848514, "b.txt".into())),
             line_parser::line("14848514 b.txt")
         );
         assert_eq!(Ok(Line::File(584, "i".into())), line_parser::line("584 i"));
-        assert_eq!(
-            Ok(Line::Cmd(Command::Cd("..".into()))),
-            line_parser::line("$ cd ..")
-        );
+        assert_eq!(Ok(Line::Cd("..".into())), line_parser::line("$ cd .."));
     }
 
     #[test]
