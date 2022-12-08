@@ -38,15 +38,8 @@ impl<'a> Iterator for Steps<'a> {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let start = self.start + self.dir;
-
-        match self.grid.get(start) {
-            Some(value) => {
-                self.start = start;
-                Some(value)
-            }
-            None => None,
-        }
+        self.start = self.start + self.dir;
+        self.grid.get(self.start)
     }
 }
 
@@ -79,7 +72,7 @@ impl<'a> Iterator for TreeIter<'a> {
         if pos.y >= self.grid.height as i32 - 1 {
             None
         } else {
-            Some((pos, self.grid.get(pos).unwrap()))
+            Some((pos, self.grid.get(pos).expect("Failed to get tree")))
         }
     }
 }
@@ -168,10 +161,9 @@ impl TreeGrid {
     pub fn invisibles(&self) -> u64 {
         let mut invisibles = 0;
         for (pos, tree) in self.trees() {
-            let invisible = Self::DIRECTIONS.iter().all(|&dir| {
-                self.steps(pos, dir)
-                    .any(|neighbor| tree <= neighbor)
-            });
+            let invisible = Self::DIRECTIONS
+                .iter()
+                .all(|&dir| self.steps(pos, dir).any(|neighbor| tree <= neighbor));
             if invisible {
                 invisibles += 1;
             }
