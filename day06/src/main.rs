@@ -1,7 +1,5 @@
 //! Day 06: Tuning Trouble
 
-use itertools::Itertools;
-
 use std::collections::HashSet;
 
 /// Detects the start of packet marker, a four letter sequence where all letters are different
@@ -33,17 +31,6 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use crate::*;
-
-    #[test]
-    fn test_tuple_windows() {
-        let slice = [1, 2, 3, 4, 5];
-
-        let input = "mjqjpqmgbljsphdztnvjfqwrcgsmlb";
-        for (index, (c1, c2, c3, c4)) in input.chars().tuple_windows().enumerate() {}
-
-        let chars = input.chars().collect_vec();
-        // chars.windows(size)
-    }
 
     #[test]
     fn check_part1() {
