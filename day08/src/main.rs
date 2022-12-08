@@ -39,25 +39,32 @@ impl TreeGrid {
     }
 
     /// Checks all trees and counts all visible ones by determine all invisible trees first.
-    pub fn visible(&self) -> u64 {
-        self.trees.len() as u64 - self.invisible()
+    pub fn visibles(&self) -> u64 {
+        self.trees.len() as u64 - self.invisibles()
     }
 
-    pub fn invisible(&self) -> u64 {
+    pub fn invisibles(&self) -> u64 {
+        let mut invisibles = 0;
         let directions: [(i32, i32); 4] = [(1, 0), (0, 1), (-1, 0), (0, -1)];
         for y in 1..(self.height - 1) as i32 {
             for x in 1..(self.width - 1) as i32 {
-                let tree = self.get(x, y);
+                let tree = self.get(x, y).expect(format!("No tree found at {}x{}?", x, y).as_str());
 
                 // check all directions
-                for dir in directions {
-                    while let Some(step) = self.get(x + dir.0, y + dir.1) {
-
+                let (mut dx, mut dy) = (x, y);
+                'outer: for dir in directions {
+                    while let Some(neighbor) = self.get(dx + dir.0, dy + dir.1) {
+                        if tree < neighbor {
+                            invisibles += 1;
+                            break 'outer;
+                        }
+                        dx += dir.0;
+                        dy += dir.1;
                     }
                 }
             }
         }
-        0
+        invisibles
     }
 
     fn get(&self, x: i32, y: i32) -> Option<u8> {
@@ -82,12 +89,12 @@ fn parse(input: &str) -> TreeGrid {
 
 /// Returns the number of visible trees
 fn part1(grid: &TreeGrid) -> u64 {
-    0
+    grid.visibles()
 }
 
 fn main() {
-    let entry = parse(include_str!("input.txt"));
-    // println!("Part 1: {}", part1(&entry));
+    let grid = parse(include_str!("input.txt"));
+    println!("Part 1: {}", part1(&grid));
 }
 
 #[cfg(test)]
@@ -104,7 +111,7 @@ mod tests {
 
     #[test]
     fn check_part1() {
-        let entry = parse(INPUT);
-        // assert_eq!(95437, part1(&entry));
+        let tree_grid = parse(INPUT);
+        assert_eq!(21, part1(&tree_grid));
     }
 }
