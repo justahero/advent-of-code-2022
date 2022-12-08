@@ -22,6 +22,7 @@ impl std::ops::Add for Pos {
     }
 }
 
+/// A struct to hold an Iterator used with [`TreeGrid::steps`].
 struct Steps<'a> {
     grid: &'a TreeGrid,
     start: Pos,
@@ -82,15 +83,13 @@ impl<'a> Iterator for TreeIter<'a> {
 ///
 /// Examples:
 /// ```
-/// scan_view(5, [3, 5, 3]) -> 2  //
+/// scan_trees(5, [3, 5, 3]) -> 2  //
 /// ```
-pub fn scan_view(tree: u8, iter: impl Iterator<Item = u8>) -> usize {
+pub fn scan_trees(tree: u8, iter: impl Iterator<Item = u8>) -> usize {
     let mut count = 0;
     for neighbor in iter {
-        if neighbor < tree {
-            count += 1;
-        } else if neighbor >= tree {
-            count += 1;
+        count += 1;
+        if neighbor >= tree {
             break;
         }
     }
@@ -118,10 +117,10 @@ impl Display for TreeGrid {
 
 impl TreeGrid {
     const DIRECTIONS: [Pos; 4] = [
-        Pos::new(1, 0),  // down
+        Pos::new(0, -1), // up
         Pos::new(0, 1),  // right
         Pos::new(-1, 0), // left
-        Pos::new(0, -1), // up
+        Pos::new(1, 0),  // down
     ];
 
     pub fn new() -> Self {
@@ -141,34 +140,30 @@ impl TreeGrid {
     }
 
     /// Checks all trees and counts all visible ones by determine all invisible trees first.
-    pub fn visibles(&self) -> u64 {
-        self.trees.len() as u64 - self.invisibles()
+    pub fn visibles(&self) -> usize {
+        self.trees.len() - self.invisibles()
     }
 
     /// Returns the score of the best scenic tree in the forest
-    pub fn best_scenic(&self) -> u64 {
-        let mut best_score = 0;
-        for (pos, tree) in self.trees() {
-            let current_score = Self::DIRECTIONS.iter().fold(1, |product, &dir| {
-                product * scan_view(tree, self.steps(pos, dir))
-            });
-            best_score = best_score.max(current_score as u64)
-        }
-        best_score
+    pub fn best_scenic(&self) -> Option<usize> {
+        self.trees()
+            .map(|(pos, tree)| {
+                Self::DIRECTIONS.iter().fold(1, |product, &dir| {
+                    product * scan_trees(tree, self.steps(pos, dir))
+                })
+            })
+            .max()
     }
 
     /// Returns the number of invisible trees that cannot be seen from any side.
-    pub fn invisibles(&self) -> u64 {
-        let mut invisibles = 0;
-        for (pos, tree) in self.trees() {
-            let invisible = Self::DIRECTIONS
-                .iter()
-                .all(|&dir| self.steps(pos, dir).any(|neighbor| tree <= neighbor));
-            if invisible {
-                invisibles += 1;
-            }
-        }
-        invisibles
+    pub fn invisibles(&self) -> usize {
+        self.trees()
+            .filter(|&(pos, tree)| {
+                Self::DIRECTIONS
+                    .iter()
+                    .all(|&dir| self.steps(pos, dir).any(|neighbor| tree <= neighbor))
+            })
+            .count()
     }
 
     /// Returns an iterator over all inner trees
@@ -176,10 +171,12 @@ impl TreeGrid {
         TreeIter::new(self)
     }
 
+    /// Returns a steps iterator from current pos to the given direction (up, left, right, down)
     fn steps(&self, pos: Pos, dir: Pos) -> Steps {
         Steps::new(self, pos, dir)
     }
 
+    /// Get a tree by index
     fn get(&self, Pos { x, y }: Pos) -> Option<u8> {
         if 0 <= x && x < self.width as i32 && 0 <= y && y < self.height as i32 {
             Some(self.trees[(y * self.width as i32 + x) as usize])
@@ -204,13 +201,14 @@ fn parse(input: &str) -> TreeGrid {
 }
 
 /// Returns the number of visible trees
-fn part1(grid: &TreeGrid) -> u64 {
+fn part1(grid: &TreeGrid) -> usize {
     grid.visibles()
 }
 
 /// Returns the score of the best scenic tree
-fn part2(grid: &TreeGrid) -> u64 {
+fn part2(grid: &TreeGrid) -> usize {
     grid.best_scenic()
+        .expect("Failed to find the most scenic tree")
 }
 
 fn main() {
@@ -233,10 +231,10 @@ mod tests {
 
     #[test]
     fn evaluate_scenic_iter() {
-        assert_eq!(1, scan_view(5, [5u8, 2].into_iter()));
-        assert_eq!(1, scan_view(5, [3u8].into_iter()));
-        assert_eq!(2, scan_view(5, [1u8, 2].into_iter()));
-        assert_eq!(2, scan_view(5, [3u8, 5, 3].into_iter()));
+        assert_eq!(1, scan_trees(5, [5u8, 2].into_iter()));
+        assert_eq!(1, scan_trees(5, [3u8].into_iter()));
+        assert_eq!(2, scan_trees(5, [1u8, 2].into_iter()));
+        assert_eq!(2, scan_trees(5, [3u8, 5, 3].into_iter()));
     }
 
     #[test]
