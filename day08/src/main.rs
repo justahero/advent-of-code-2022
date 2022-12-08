@@ -2,25 +2,6 @@
 
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug)]
-struct TreeGrid {
-    width: usize,
-    height: usize,
-    trees: Vec<u8>,
-}
-
-impl Display for TreeGrid {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for row in self.trees.chunks(self.width) {
-            for tree in row {
-                write!(f, "{}", tree)?;
-            }
-            write!(f, "\n")?;
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 struct Pos {
     x: i32,
@@ -69,6 +50,40 @@ impl<'a> Iterator for Steps<'a> {
     }
 }
 
+/// Iterates over all inner trees in the tree grid.
+struct TreeIter<'a> {
+    grid: &'a TreeGrid,
+    pos: Pos,
+}
+
+impl<'a> TreeIter<'a> {
+    pub fn new(grid: &'a TreeGrid) -> Self {
+        Self {
+            grid,
+            pos: Pos::new(1, 1),
+        }
+    }
+}
+
+impl<'a> Iterator for TreeIter<'a> {
+    type Item = (Pos, u8);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let pos = self.pos + Pos::new(1, 0);
+        let pos = if pos.x >= self.grid.width as i32 - 1 {
+            Pos::new(1, pos.y + 1)
+        } else {
+            pos
+        };
+        self.pos = pos;
+        if pos.y >= self.grid.height as i32 - 1 {
+            None
+        } else {
+            Some((pos, self.grid.get(pos).unwrap()))
+        }
+    }
+}
+
 /// Algorithm to scan a line of trees from a given tree height. As soon as we find a tree of same height or
 /// above the remaining trees are hidden and do not count.
 ///
@@ -87,6 +102,25 @@ pub fn scan_view(tree: u8, iter: impl Iterator<Item = u8>) -> usize {
         }
     }
     count
+}
+
+#[derive(Debug)]
+struct TreeGrid {
+    pub width: usize,
+    pub height: usize,
+    trees: Vec<u8>,
+}
+
+impl Display for TreeGrid {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for row in self.trees.chunks(self.width) {
+            for tree in row {
+                write!(f, "{}", tree)?;
+            }
+            write!(f, "\n")?;
+        }
+        Ok(())
+    }
 }
 
 impl TreeGrid {
@@ -118,46 +152,36 @@ impl TreeGrid {
         self.trees.len() as u64 - self.invisibles()
     }
 
+    /// Returns the score of the best scenic tree in the forest
     pub fn best_scenic(&self) -> u64 {
         let mut best_score = 0;
-
-        for y in 1..(self.height - 1) as i32 {
-            for x in 1..(self.width - 1) as i32 {
-                let pos = Pos::new(x, y);
-                let tree = self
-                    .get(pos)
-                    .expect(format!("No tree found at {}x{}?", x, y).as_str());
-
-                let current_score = Self::DIRECTIONS.iter().fold(1, |product, &dir| {
-                    product * scan_view(tree, self.steps(pos, dir))
-                });
-
-                best_score = best_score.max(current_score as u64);
-            }
+        for (pos, tree) in self.trees() {
+            let current_score = Self::DIRECTIONS.iter().fold(1, |product, &dir| {
+                product * scan_view(tree, self.steps(pos, dir))
+            });
+            best_score = best_score.max(current_score as u64)
         }
         best_score
     }
 
+    /// Returns the number of invisible trees that cannot be seen from any side.
     pub fn invisibles(&self) -> u64 {
         let mut invisibles = 0;
-
-        for y in 1..(self.height - 1) as i32 {
-            for x in 1..(self.width - 1) as i32 {
-                let tree = self
-                    .get(Pos::new(x, y))
-                    .expect(format!("No tree found at {}x{}?", x, y).as_str());
-
-                // A tree is invisible when it cannot be seen from any direction
-                let invisible = Self::DIRECTIONS.iter().all(|&dir| {
-                    self.steps(Pos::new(x, y), dir)
-                        .any(|neighbor| tree <= neighbor)
-                });
-                if invisible {
-                    invisibles += 1;
-                }
+        for (pos, tree) in self.trees() {
+            let invisible = Self::DIRECTIONS.iter().all(|&dir| {
+                self.steps(pos, dir)
+                    .any(|neighbor| tree <= neighbor)
+            });
+            if invisible {
+                invisibles += 1;
             }
         }
         invisibles
+    }
+
+    /// Returns an iterator over all inner trees
+    fn trees(&self) -> TreeIter {
+        TreeIter::new(self)
     }
 
     fn steps(&self, pos: Pos, dir: Pos) -> Steps {
