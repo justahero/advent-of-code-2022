@@ -64,12 +64,39 @@ impl<'a> Iterator for Steps<'a> {
                 self.start = start;
                 Some(value)
             }
-            None => None
+            None => None,
         }
     }
 }
 
+/// Algorithm to scan a line of trees from a given tree height. As soon as we find a tree of same height or
+/// above the remaining trees are hidden and do not count.
+///
+/// Examples:
+/// ```
+/// scan_view(5, [3, 5, 3]) -> 2  //
+/// ```
+pub fn scan_view(tree: u8, iter: impl Iterator<Item = u8>) -> usize {
+    let mut count = 0;
+    for neighbor in iter {
+        if neighbor < tree {
+            count += 1;
+        } else if neighbor >= tree {
+            count += 1;
+            break;
+        }
+    }
+    count
+}
+
 impl TreeGrid {
+    const DIRECTIONS: [Pos; 4] = [
+        Pos::new(1, 0),  // down
+        Pos::new(0, 1),  // right
+        Pos::new(-1, 0), // left
+        Pos::new(0, -1), // up
+    ];
+
     pub fn new() -> Self {
         Self {
             width: 0,
@@ -91,16 +118,40 @@ impl TreeGrid {
         self.trees.len() as u64 - self.invisibles()
     }
 
-    pub fn invisibles(&self) -> u64 {
-        let mut invisibles = 0;
-        const DIRECTIONS: [Pos; 4] = [Pos::new(1, 0), Pos::new(0, 1), Pos::new(-1, 0), Pos::new(0, -1)];
+    pub fn best_scenic(&self) -> u64 {
+        let mut best_score = 0;
 
         for y in 1..(self.height - 1) as i32 {
             for x in 1..(self.width - 1) as i32 {
-                let tree = self.get(Pos::new(x, y)).expect(format!("No tree found at {}x{}?", x, y).as_str());
+                let pos = Pos::new(x, y);
+                let tree = self
+                    .get(pos)
+                    .expect(format!("No tree found at {}x{}?", x, y).as_str());
+
+                let current_score = Self::DIRECTIONS.iter().fold(1, |product, &dir| {
+                    product * scan_view(tree, self.steps(pos, dir))
+                });
+
+                best_score = best_score.max(current_score as u64);
+            }
+        }
+        best_score
+    }
+
+    pub fn invisibles(&self) -> u64 {
+        let mut invisibles = 0;
+
+        for y in 1..(self.height - 1) as i32 {
+            for x in 1..(self.width - 1) as i32 {
+                let tree = self
+                    .get(Pos::new(x, y))
+                    .expect(format!("No tree found at {}x{}?", x, y).as_str());
 
                 // A tree is invisible when it cannot be seen from any direction
-                let invisible = DIRECTIONS.iter().all(|&dir| self.steps(Pos::new(x, y), dir).any(|neighbor| tree <= neighbor));
+                let invisible = Self::DIRECTIONS.iter().all(|&dir| {
+                    self.steps(Pos::new(x, y), dir)
+                        .any(|neighbor| tree <= neighbor)
+                });
                 if invisible {
                     invisibles += 1;
                 }
@@ -113,7 +164,7 @@ impl TreeGrid {
         Steps::new(self, pos, dir)
     }
 
-    fn get(&self, Pos{ x, y }: Pos) -> Option<u8> {
+    fn get(&self, Pos { x, y }: Pos) -> Option<u8> {
         if 0 <= x && x < self.width as i32 && 0 <= y && y < self.height as i32 {
             Some(self.trees[(y * self.width as i32 + x) as usize])
         } else {
@@ -128,7 +179,10 @@ fn parse(input: &str) -> TreeGrid {
         .map(str::trim)
         .filter(|&line| !line.is_empty())
         .fold(TreeGrid::new(), |grid, line: &str| {
-            let trees = line.chars().filter_map(|c| c.to_string().parse::<u8>().ok()).collect::<Vec<_>>();
+            let trees = line
+                .chars()
+                .filter_map(|c| c.to_string().parse::<u8>().ok())
+                .collect::<Vec<_>>();
             grid.add_line(trees)
         })
 }
@@ -138,9 +192,15 @@ fn part1(grid: &TreeGrid) -> u64 {
     grid.visibles()
 }
 
+/// Returns the score of the best scenic tree
+fn part2(grid: &TreeGrid) -> u64 {
+    grid.best_scenic()
+}
+
 fn main() {
     let grid = parse(include_str!("input.txt"));
     println!("Part 1: {}", part1(&grid));
+    println!("Part 2: {}", part2(&grid));
 }
 
 #[cfg(test)]
@@ -156,8 +216,22 @@ mod tests {
     "#;
 
     #[test]
+    fn evaluate_scenic_iter() {
+        assert_eq!(1, scan_view(5, [5u8, 2].into_iter()));
+        assert_eq!(1, scan_view(5, [3u8].into_iter()));
+        assert_eq!(2, scan_view(5, [1u8, 2].into_iter()));
+        assert_eq!(2, scan_view(5, [3u8, 5, 3].into_iter()));
+    }
+
+    #[test]
     fn check_part1() {
         let tree_grid = parse(INPUT);
         assert_eq!(21, part1(&tree_grid));
+    }
+
+    #[test]
+    fn check_part2() {
+        let tree_grid = parse(INPUT);
+        assert_eq!(8, part2(&tree_grid));
     }
 }
