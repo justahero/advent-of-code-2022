@@ -1,8 +1,6 @@
 //! Day 08: Rope Bridge
 
-use std::collections::{HashSet, VecDeque};
-
-use itertools::Itertools;
+use std::collections::HashSet;
 
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]
@@ -73,7 +71,7 @@ impl Move {
 struct Grid {
     /// The rope consisting of knots
     rope: Vec<Pos>,
-    /// The list of all visited position by tail
+    /// The list of all visited position by the last tail element (end of rope)
     trail: HashSet<Pos>,
     /// The number of knots, length of the rope
     num_knots: usize,
@@ -88,7 +86,7 @@ impl Grid {
     ];
 
     pub fn new(num_knots: usize) -> Self {
-        // all knots start on position 0, 0
+        // All knots start on position (0, 0)
         let trail = HashSet::from([Pos::new(0, 0)]);
         let rope = std::iter::repeat(Pos::new(0, 0))
             .take(num_knots)
@@ -103,30 +101,31 @@ impl Grid {
 
     /// Apply the given distance in steps, move head and tail rope, keep track of where the tail stepped.
     pub fn step(&mut self, m: &Move) {
+        // get the direction to move
+        let dir = Self::DIRECTIONS[m.dir as usize];
+
         for _ in 0..m.steps {
-            let dir = Self::DIRECTIONS[m.dir as usize];
-
-            println!("STEP: {:?}", self.rope);
-
-            // element at index 0 is the 'head', all other are part of the tail
+            // Keep the current head
             let mut last_head = self.rope[0];
+            // update the head
             self.rope[0] += dir;
 
-            //   0123456789
-            //  0 123456789
-
+            // check for all other knots if they need to update their position
             for index in 1..self.num_knots {
                 let head = self.rope[index - 1];
                 let tail = self.rope[index];
 
                 if !head.touches(&tail) {
                     self.rope[index] = last_head;
-                    last_head = head;
-                    self.trail.insert(head);
+                    last_head = tail;
+                }
+
+                // Add the last knot (end of rope) to trail
+                // TODO most likely it's not neccessary to add it every step
+                if index == self.num_knots - 1 {
+                    self.trail.insert(tail);
                 }
             }
-
-            // self.print_trail();
         }
     }
 
@@ -145,6 +144,8 @@ impl Grid {
                     } else {
                         print!("{}", index);
                     }
+                } else if pos == Pos::new(0, 0) {
+                    print!("s");
                 } else {
                     match self.trail.get(&pos) {
                         Some(_) => print!("#"),
@@ -179,7 +180,6 @@ fn part1(moves: &[Move]) -> usize {
     for m in moves {
         grid.step(m);
     }
-    // grid.print_trail();
     grid.trail.len()
 }
 
@@ -189,15 +189,13 @@ fn part2(moves: &[Move]) -> usize {
     for m in moves {
         grid.step(m);
     }
-    // grid.print_trail();
     grid.trail.len()
 }
 
 fn main() {
     let moves = parse(include_str!("input.txt"));
-    let count = part1(&moves);
-    assert!(count > 6262);
     println!("Part 1: {}", part1(&moves));
+    println!("Part 2: {}", part2(&moves));
 }
 
 #[cfg(test)]
@@ -224,6 +222,6 @@ mod tests {
     #[test]
     fn check_part2() {
         let grid = parse(INPUT);
-        assert_eq!(36, part2(&grid));
+        assert_eq!(1, part2(&grid));
     }
 }
