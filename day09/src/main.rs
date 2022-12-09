@@ -1,6 +1,6 @@
 //! Day 08: Rope Bridge
 
-use std::collections::HashSet;
+use std::{collections::HashSet, cmp::Ordering};
 
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]
@@ -37,6 +37,21 @@ impl Pos {
     /// Checks if this pos is adjacent / touching the other
     pub fn touches(&self, rhs: &Pos) -> bool {
         (self.x - rhs.x).abs() <= 1 && (self.y - rhs.y).abs() <= 1
+    }
+
+    /// Returns a directional Vector to advance one knot to the other
+    pub fn get_dir(&self, target: &Pos) -> Pos {
+        let x = match target.x.cmp(&self.x) {
+            Ordering::Less => 1,
+            Ordering::Equal => 0,
+            Ordering::Greater => -1,
+        };
+        let y = match target.y.cmp(&self.y) {
+            Ordering::Less => 1,
+            Ordering::Equal => 0,
+            Ordering::Greater => -1,
+        };
+        Pos::new(x, y)
     }
 }
 
@@ -105,8 +120,6 @@ impl Grid {
         let dir = Self::DIRECTIONS[m.dir as usize];
 
         for _ in 0..m.steps {
-            // Keep the current head
-            let mut last_head = self.rope[0];
             // update the head
             self.rope[0] += dir;
 
@@ -115,16 +128,14 @@ impl Grid {
                 let head = self.rope[index - 1];
                 let tail = self.rope[index];
 
-                if !head.touches(&tail) {
-                    self.rope[index] = last_head;
-                    last_head = tail;
+                if !tail.touches(&head) {
+                    self.rope[index] += head.get_dir(&tail);
                 }
+            }
 
-                // Add the last knot (end of rope) to trail
-                // TODO most likely it's not neccessary to add it every step
-                if index == self.num_knots - 1 {
-                    self.trail.insert(tail);
-                }
+            // Add the last knot (end of rope) to trail
+            if let Some(last) = self.rope.last() {
+                self.trail.insert(*last);
             }
         }
     }
@@ -223,5 +234,21 @@ mod tests {
     fn check_part2() {
         let grid = parse(INPUT);
         assert_eq!(1, part2(&grid));
+    }
+
+    #[test]
+    fn check_longer_part2() {
+        let input = r#"
+            R 5
+            U 8
+            L 8
+            D 3
+            R 17
+            D 10
+            L 25
+            U 20
+        "#;
+        let grid = parse(input);
+        assert_eq!(36, part2(&grid));
     }
 }
