@@ -79,6 +79,41 @@ impl VideoSystem {
 
         signal_strengths
     }
+
+    /// Renders pixels into a String
+    /// Each row of the CRT consists of 40 characters / pixels, 6 rows high.
+    pub fn display(&self, instructions: &[Instruction]) -> String {
+        let mut output = String::new();
+        let mut beam = self.start_interval as i32;
+        let mut sprite = 1;
+
+        for instruction in instructions {
+            for _ in 0..instruction.cycles() {
+                beam += 1;
+
+                // When the current beam hits the sprite (the register 'X') draw a pixel
+                // if [sprite..=sprite+2].contains(&beam) {
+                if sprite <= beam && beam < sprite + 3 {
+                    output.push('#');
+                } else {
+                    output.push('.');
+                }
+
+                // in case an interval wrap the CRT display line
+                if beam >= self.interval as i32 {
+                    beam = 0;
+                    output.push('\n');
+                }
+            }
+
+            // advance register
+            if let Instruction::Add(value) = instruction {
+                sprite += *value;
+            }
+        }
+
+        output
+    }
 }
 
 fn parse(input: &str) -> anyhow::Result<Vec<Instruction>> {
@@ -97,9 +132,15 @@ fn part1(instructions: &[Instruction]) -> i64 {
         .sum::<i64>()
 }
 
+fn part2(instructions: &[Instruction]) -> String {
+    let video_system = VideoSystem::new(0, 40);
+    video_system.display(&instructions)
+}
+
 fn main() -> anyhow::Result<()> {
     let instructions = parse(include_str!("input.txt"))?;
     println!("Part 1: {}", part1(&instructions));
+    println!("Part 2:\n{}", part2(&instructions));
     Ok(())
 }
 
@@ -127,5 +168,19 @@ mod tests {
             signal_strengths
         );
         assert_eq!(13140, part1(&instructions));
+    }
+
+    #[test]
+    fn check_part2() {
+        let expected =
+            "##..##..##..##..##..##..##..##..##..##..\n\
+             ###...###...###...###...###...###...###.\n\
+             ####....####....####....####....####....\n\
+             #####.....#####.....#####.....#####.....\n\
+             ######......######......######......####\n\
+             #######.......#######.......#######.....\n";
+
+        let instructions = parse(INPUT).expect("Failed to parse input.");
+        assert_eq!(expected, part2(&instructions));
     }
 }
