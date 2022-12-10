@@ -8,3 +8,4 @@ publish = false
 [dependencies]
 anyhow = "1.0"
 itertools = "0.10.5"
+nom = "7.1"
