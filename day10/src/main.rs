@@ -43,8 +43,6 @@ struct VideoSystem {
     start_interval: u32,
     /// The cycle interval to measure signal strength of 'X'
     interval: u32,
-    /// The accumulated register 'X'
-    x: i64,
 }
 
 impl VideoSystem {
@@ -52,37 +50,30 @@ impl VideoSystem {
         Self {
             start_interval,
             interval,
-            x: 1,
         }
     }
 
     /// Run all given instructions on the video system, take care of cycles and measure X at certain intervals.
-    pub fn run(&self, instructions: &[Instruction]) -> Vec<(i64, i64)> {
+    pub fn run(&self, instructions: &[Instruction]) -> Vec<(i32, i32)> {
         let mut signal_strengths = Vec::new();
         let mut cycle_count = 0;
         let mut interval = self.start_interval;
-        let mut x = self.x;
+        let mut x = 1;
 
         for instruction in instructions {
-            // run all cycles
             for _ in 0..instruction.cycles() {
                 cycle_count += 1;
                 interval += 1;
 
                 // in case an interval is hit store current signal / cycle pair
                 if interval >= self.interval {
-                    println!(
-                        "INTERVAL: {}, cycle count: {}, x: {}",
-                        interval, cycle_count, x
-                    );
                     interval = 0;
-                    signal_strengths.push((cycle_count as i64, x as i64));
+                    signal_strengths.push((cycle_count, x));
                 }
             }
             // apply operation
             if let Instruction::Add(value) = instruction {
-                println!("ADD {}", value);
-                x += *value as i64;
+                x += *value;
             }
         }
 
@@ -100,10 +91,9 @@ fn part1(instructions: &[Instruction]) -> i64 {
     let video_system = VideoSystem::new(20, 40);
     let strengths = video_system.run(instructions);
 
-    println!("STRENGTHS: {:?}", strengths);
     strengths
         .iter()
-        .map(|(cycle, value)| *cycle * *value)
+        .map(|(cycle, value)| *cycle as i64 * *value as i64)
         .sum::<i64>()
 }
 
