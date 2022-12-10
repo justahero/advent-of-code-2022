@@ -199,9 +199,7 @@ fn build_hierarchy<'a>(
                     build_hierarchy(entry, lines)?;
                 }
             },
-            Some(Line::Ls) => {
-                // TODO do we need to do something here?
-            }
+            Some(Line::Ls) => (),
             Some(Line::Dir(dir)) => {
                 parent.add_dir(dir)?;
             }
@@ -240,23 +238,17 @@ fn part1(root: &Entry) -> u64 {
 /// The one directory closest but above this threshold is the directory to be deleted. Its size
 /// is returned as an answer
 fn part2(root: &Entry) -> u64 {
-    const TOTAL_DISK_SPACE: u64 = 70_000_000;
-    const REQUIRED_DISK_SPACE: u64 = 30_000_000;
-
     let mut sizes = Vec::new();
     root.sizes(&mut sizes);
 
-    // determine current available space
-    let available_space = TOTAL_DISK_SPACE - root.size();
+    let available_space = 70_000_000 - root.size();
+    let required_space = 30_000_000 - available_space;
 
-    let x = sizes
-        .iter()
-        .map(|&size| (size, size + available_space))
-        .filter(|(_dir_size, available_space)| *available_space > REQUIRED_DISK_SPACE)
-        .map(|(dir_space, _)| dir_space)
-        .min();
-
-    x.expect("Failed to find directory")
+    sizes
+        .into_iter()
+        .filter(|&size| size > required_space)
+        .min()
+        .expect("No directory found")
 }
 
 fn main() {

@@ -26,10 +26,13 @@ impl SupplyStack {
     /// source to target stack, thereby reversing the order of the crates.
     ///
     /// "from" and "to" indices start at `1`.
-    pub fn single(&mut self, mv: &Move) -> anyhow::Result<()> {
+    pub fn single_move(&mut self, mv: &Move) -> anyhow::Result<()> {
         // Good example for ranges, classical for loop
         // Not the fastest way to "move" crates, but it's ok
         for _ in 0..mv.num_crates {
+            if self.stacks[mv.from - 1].is_empty() {
+                return Err(anyhow!("Cannot take crate from empty stack"));
+            }
             let c = self.stacks[mv.from - 1].remove(0);
             self.stacks[mv.to - 1].insert(0, c);
         }
@@ -38,8 +41,11 @@ impl SupplyStack {
 
     /// Applies a single move on the stack, the pile of crates are picked at once
     /// and moved from source to target stack, the order of crates does not change.
-    pub fn multi(&mut self, mv: &Move) -> anyhow::Result<()> {
+    pub fn multi_move(&mut self, mv: &Move) -> anyhow::Result<()> {
         for index in (0..mv.num_crates as usize).rev() {
+            if self.stacks[mv.from - 1].len() < index {
+                return Err(anyhow!("Stack is smaller than the given index to remove from."));
+            }
             let c = self.stacks[mv.from - 1].remove(index);
             self.stacks[mv.to - 1].insert(0, c);
         }
@@ -125,25 +131,25 @@ fn parse(input: &str) -> anyhow::Result<(SupplyStack, Vec<Move>)> {
 }
 
 /// Run all moves for crane, re-arrange the stacks
-fn part1(stack: &mut SupplyStack, moves: &[Move]) -> anyhow::Result<String> {
+fn part1(mut stack: SupplyStack, moves: &[Move]) -> anyhow::Result<String> {
     // using `?` operator to return an `Err` works in a `for` loop, but not from a closure
     for m in moves {
-        stack.single(m)?;
+        stack.single_move(m)?;
     }
     Ok(stack.top())
 }
 
-fn part2(stack: &mut SupplyStack, moves: &[Move]) -> anyhow::Result<String> {
+fn part2(mut stack: SupplyStack, moves: &[Move]) -> anyhow::Result<String> {
     for m in moves {
-        stack.multi(m)?;
+        stack.multi_move(m)?;
     }
     Ok(stack.top())
 }
 
 fn main() -> anyhow::Result<()> {
     let (stack, moves) = parse(include_str!("input.txt"))?;
-    println!("Part 1: {}", part1(&mut stack.clone(), &moves)?);
-    println!("Part 2: {}", part2(&mut stack.clone(), &moves)?);
+    println!("Part 1: {}", part1(stack.clone(), &moves)?);
+    println!("Part 2: {}", part2(stack, &moves)?);
 
     Ok(())
 }
@@ -186,15 +192,15 @@ move 1 from 1 to 2
 
     #[test]
     fn check_part1() -> anyhow::Result<()> {
-        let (mut stack, moves) = parse(INPUT)?;
-        assert_eq!("CMZ", part1(&mut stack, &moves)?);
+        let (stack, moves) = parse(INPUT)?;
+        assert_eq!("CMZ", part1(stack, &moves)?);
         Ok(())
     }
 
     #[test]
     fn check_part2() -> anyhow::Result<()> {
-        let (mut stack, moves) = parse(INPUT)?;
-        assert_eq!("MCD", part2(&mut stack, &moves)?);
+        let (stack, moves) = parse(INPUT)?;
+        assert_eq!("MCD", part2(stack, &moves)?);
         Ok(())
     }
 }

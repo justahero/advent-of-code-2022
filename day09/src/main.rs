@@ -1,6 +1,6 @@
-//! Day 08: Rope Bridge
+//! Day 09: Rope Bridge
 
-use std::{collections::HashSet, cmp::Ordering};
+use std::{cmp::Ordering, collections::HashSet};
 
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]
