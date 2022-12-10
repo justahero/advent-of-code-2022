@@ -1,5 +1,7 @@
 //! Day 10: Cathode-Ray Tube
 
+use anyhow::anyhow;
+
 use nom::{
     branch::alt, bytes::complete::tag, character::complete::newline, combinator::map,
     multi::separated_list1, sequence::preceded, IResult,
@@ -40,33 +42,44 @@ impl Instruction {
 
 #[derive(Debug)]
 struct VideoSystem {
-    /// The number of cycles
-    cycle_count: u32,
+    /// The start cycle counter that is increased for each instructions
+    cycle_count: i32,
+    /// The cycle interval to measure signal strength of 'X'
+    interval: u32,
     /// The accumulated register 'X'
     x: i32,
 }
 
 impl VideoSystem {
-    pub fn new() -> Self {
+    pub fn new(start_count: i32, interval: u32) -> Self {
         Self {
-            cycle_count: 0,
+            cycle_count: start_count,
+            interval,
             x: 1,
         }
+    }
+
+    /// Run all given instructions on the video system, take care of cycles and measure X at certain intervals.
+    pub fn run(&self, instructions: &[Instruction]) -> u64 {
+        0
     }
 }
 
 fn parse(input: &str) -> anyhow::Result<Vec<Instruction>> {
-    let (_, instructions) = separated_list1(newline, Instruction::parse)(input).unwrap();
+    let (_, instructions) = separated_list1(newline, Instruction::parse)(input)
+        .map_err(|e| anyhow!("Failed to parse input: {}", e))?;
     Ok(instructions)
 }
 
-fn part1() -> usize {
-    0
+fn part1(instructions: &[Instruction]) -> u64 {
+    let video_system = VideoSystem::new(-20, 40);
+    video_system.run(instructions)
 }
 
-fn main() {
-    let _ = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1());
+fn main() -> anyhow::Result<()> {
+    let instructions = parse(include_str!("input.txt"))?;
+    println!("Part 1: {}", part1(&instructions));
+    Ok(())
 }
 
 #[cfg(test)]
@@ -77,7 +90,7 @@ mod tests {
 
     #[test]
     fn check_part1() {
-        let _ = parse(INPUT);
-        assert_eq!(0, part1());
+        let instructions = parse(INPUT).expect("Failed to parse input.");
+        assert_eq!(13140, part1(&instructions));
     }
 }
