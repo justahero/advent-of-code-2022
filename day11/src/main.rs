@@ -90,7 +90,7 @@ struct Test {
     if_false: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Monkey {
     /// The monkey identifier
     id: u64,
@@ -102,64 +102,32 @@ struct Monkey {
     inspections: u64,
 }
 
-/// Play a number of rounds, note how often items are inspected by monkeys
-fn part1(mut monkeys: Vec<Monkey>) -> u64 {
+fn play(mut monkeys: Vec<Monkey>, num_rounds: u32, divisible: u64) -> u64 {
     let num_monkeys = monkeys.len();
-    let num_rounds = 20;
 
     // play a nmber of N rounds
     for _ in 0..num_rounds {
-        println!("Round 1");
-        // play all monkeys' turns
         for index in 0..num_monkeys {
-            println!("Monkey {}:", index);
-
             let items = monkeys[index].items.drain(..).collect::<Vec<_>>();
             let operation = monkeys[index].operation;
             let test = monkeys[index].test.clone();
 
             for worry_level in items {
-                println!(
-                    "  Monkey inspects an item with worry level of {}",
+                let worry_level = if divisible != 1 {
+                    operation.apply(worry_level) / divisible
+                } else {
+                    // TODO fix value for 2nd solution
                     worry_level
-                );
-                let worry_level = operation.apply(worry_level);
-
-                println!("    Worry level is {} to {}", operation, worry_level);
-                let worry_level = worry_level / 3;
-                println!(
-                    "    Monkey gets bored with item. Worry level is divided by 3 to {}.",
-                    worry_level
-                );
+                };
 
                 if worry_level % test.divisible == 0 {
-                    println!("    Current worry level is divisible by {}", test.divisible);
-                    println!(
-                        "    Item with worry level {} is thrown to monkey {}",
-                        worry_level, test.if_true
-                    );
                     monkeys[test.if_true as usize].items.push(worry_level);
                 } else {
-                    println!(
-                        "    Current worry level is not divisble by {}",
-                        test.divisible
-                    );
-                    println!(
-                        "    Item with worry level {} is thrown to monkey {}",
-                        worry_level, test.if_false
-                    );
                     monkeys[test.if_false as usize].items.push(worry_level);
                 }
 
                 monkeys[index].inspections += 1;
             }
-        }
-
-        for monkey in &monkeys {
-            println!(
-                "Monkey {} inspected items {} times",
-                monkey.id, monkey.inspections
-            );
         }
     }
 
@@ -172,6 +140,15 @@ fn part1(mut monkeys: Vec<Monkey>) -> u64 {
         .product()
 }
 
+/// Play a number of rounds, note how often items are inspected by monkeys
+fn part1(monkeys: Vec<Monkey>) -> u64 {
+    play(monkeys, 20, 3)
+}
+
+fn part2(monkeys: Vec<Monkey>) -> u64 {
+    play(monkeys, 10_000, 1)
+}
+
 fn parse(input: &str) -> Vec<Monkey> {
     input
         .split("\n\n")
@@ -181,7 +158,8 @@ fn parse(input: &str) -> Vec<Monkey> {
 
 fn main() -> anyhow::Result<()> {
     let monkeys = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(monkeys));
+    println!("Part 1: {}", part1(monkeys.clone()));
+    println!("Part 2: {}", part2(monkeys));
     Ok(())
 }
 
@@ -190,12 +168,6 @@ mod tests {
     use crate::*;
 
     const INPUT: &str = include_str!("test.txt");
-
-    #[test]
-    fn check_part1() {
-        let monkeys = parse(&INPUT);
-        assert_eq!(10605, part1(monkeys));
-    }
 
     #[test]
     fn check_parser_rules() {
@@ -237,5 +209,17 @@ mod tests {
     If false: throw to monkey 3";
 
         assert!(monkey_parser::monkey(input).is_ok());
+    }
+
+    #[test]
+    fn check_part1() {
+        let monkeys = parse(&INPUT);
+        assert_eq!(10605, part1(monkeys));
+    }
+
+    #[test]
+    fn check_part2() {
+        let monkeys = parse(&INPUT);
+        assert_eq!(2_713_310_158, part2(monkeys));
     }
 }
