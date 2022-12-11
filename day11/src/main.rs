@@ -2,6 +2,8 @@
 
 use std::fmt::{Display, Formatter};
 
+use itertools::Itertools;
+
 peg::parser! {
     grammar monkey_parser() for str {
         rule number() -> u64
@@ -47,7 +49,7 @@ peg::parser! {
               test:test() "\n"?
             {
                 Monkey {
-                    _id: id, items, test, operation, inspections: 0,
+                    id, items, test, operation, inspections: 0,
                 }
             }
     }
@@ -91,19 +93,19 @@ struct Test {
 #[derive(Debug)]
 struct Monkey {
     /// The monkey identifier
-    _id: u64,
+    id: u64,
     /// The worrying levels of current items, each entry represents a separate item
     items: Vec<u64>,
     operation: Operation,
     test: Test,
     // Count number of inspects
-    inspections: u32,
+    inspections: u64,
 }
 
 /// Play a number of rounds, note how often items are inspected by monkeys
 fn part1(mut monkeys: Vec<Monkey>) -> u64 {
     let num_monkeys = monkeys.len();
-    let num_rounds = 1;
+    let num_rounds = 20;
 
     // play a nmber of N rounds
     for _ in 0..num_rounds {
@@ -152,9 +154,22 @@ fn part1(mut monkeys: Vec<Monkey>) -> u64 {
                 monkeys[index].inspections += 1;
             }
         }
+
+        for monkey in &monkeys {
+            println!(
+                "Monkey {} inspected items {} times",
+                monkey.id, monkey.inspections
+            );
+        }
     }
 
-    0
+    monkeys
+        .iter()
+        .map(|m| m.inspections)
+        .sorted()
+        .rev()
+        .take(2)
+        .product()
 }
 
 fn parse(input: &str) -> Vec<Monkey> {
