@@ -1,5 +1,7 @@
 //! Day 08: Treetop Tree House
 
+use itertools::Itertools;
+
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, Copy)]
@@ -41,40 +43,6 @@ impl<'a> Iterator for Steps<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.pos = self.pos + self.dir;
         self.grid.get(self.pos)
-    }
-}
-
-/// Iterates over all inner trees in the tree grid.
-struct TreeIter<'a> {
-    grid: &'a TreeGrid,
-    pos: Pos,
-}
-
-impl<'a> TreeIter<'a> {
-    pub fn new(grid: &'a TreeGrid) -> Self {
-        Self {
-            grid,
-            pos: Pos::new(1, 1),
-        }
-    }
-}
-
-impl<'a> Iterator for TreeIter<'a> {
-    type Item = (Pos, u8);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let pos = self.pos + Pos::new(1, 0);
-        let pos = if pos.x >= self.grid.width as i32 - 1 {
-            Pos::new(1, pos.y + 1)
-        } else {
-            pos
-        };
-        self.pos = pos;
-        if pos.y >= self.grid.height as i32 - 1 {
-            None
-        } else {
-            Some((pos, self.grid.get(pos).expect("Failed to get tree")))
-        }
     }
 }
 
@@ -167,8 +135,11 @@ impl TreeGrid {
     }
 
     /// Returns an iterator over all inner trees
-    fn trees(&self) -> TreeIter {
-        TreeIter::new(self)
+    fn trees(&self) -> impl Iterator<Item = (Pos, u8)> + '_ {
+        (1..self.width as i32 - 1)
+            .cartesian_product(1..self.height as i32 - 1)
+            .map(|(x, y)| (Pos::new(x, y), self.get(Pos::new(x, y)).unwrap()))
+            .into_iter()
     }
 
     /// Returns a steps iterator from current pos to the given direction (up, left, right, down)
