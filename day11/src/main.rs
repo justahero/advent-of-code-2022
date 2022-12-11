@@ -43,13 +43,13 @@ peg::parser! {
               }
 
         pub(crate) rule monkey() -> Monkey
-            = id:id() "\n"
+            = id() "\n"
               items:starting_itmes() "\n"
               operation:operation() "\n"
               test:test() "\n"?
             {
                 Monkey {
-                    id, items, test, operation, inspections: 0,
+                    items, test, operation, inspections: 0,
                 }
             }
     }
@@ -92,8 +92,6 @@ struct Test {
 
 #[derive(Debug, Clone)]
 struct Monkey {
-    /// The monkey identifier
-    id: u64,
     /// The worrying levels of current items, each entry represents a separate item
     items: Vec<u64>,
     operation: Operation,
@@ -105,6 +103,8 @@ struct Monkey {
 fn play(mut monkeys: Vec<Monkey>, num_rounds: u32, divisible: u64) -> u64 {
     let num_monkeys = monkeys.len();
 
+    let common_denominator: u64 = monkeys.iter().map(|monkey| monkey.test.divisible).product();
+
     // play a nmber of N rounds
     for _ in 0..num_rounds {
         for index in 0..num_monkeys {
@@ -113,11 +113,12 @@ fn play(mut monkeys: Vec<Monkey>, num_rounds: u32, divisible: u64) -> u64 {
             let test = monkeys[index].test.clone();
 
             for worry_level in items {
+                let worry_level = operation.apply(worry_level);
+
                 let worry_level = if divisible != 1 {
-                    operation.apply(worry_level) / divisible
+                    worry_level / divisible
                 } else {
-                    // TODO fix value for 2nd solution
-                    worry_level
+                    worry_level % common_denominator
                 };
 
                 if worry_level % test.divisible == 0 {
