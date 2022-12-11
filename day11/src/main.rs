@@ -37,8 +37,8 @@ peg::parser! {
               {
                 Test {
                     divisible,
-                    if_true,
-                    if_false,
+                    if_true: if_true as usize,
+                    if_false: if_false as usize,
                 }
               }
 
@@ -72,35 +72,22 @@ impl Operation {
     }
 }
 
-impl Display for Operation {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Operation::Mul(value) => format!("multiplied by {}", value),
-            Operation::Add(value) => format!("increases by {}", value),
-            Operation::MulSelf => format!("multiplied by itself"),
-        };
-        write!(f, "{}", s)
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 struct Test {
     divisible: u64,
-    if_true: u64,
-    if_false: u64,
+    if_true: usize,
+    if_false: usize,
 }
 
 #[derive(Debug, Clone)]
 struct Monkey {
-    /// The worrying levels of current items, each entry represents a separate item
     items: Vec<u64>,
     operation: Operation,
     test: Test,
-    // Count number of inspects
     inspections: u64,
 }
 
-fn play(mut monkeys: Vec<Monkey>, num_rounds: u32, divisible: u64) -> u64 {
+fn play(mut monkeys: Vec<Monkey>, num_rounds: u32, divisible: Option<u64>) -> u64 {
     let num_monkeys = monkeys.len();
 
     let common_denominator: u64 = monkeys.iter().map(|monkey| monkey.test.divisible).product();
@@ -115,16 +102,16 @@ fn play(mut monkeys: Vec<Monkey>, num_rounds: u32, divisible: u64) -> u64 {
             for worry_level in items {
                 let worry_level = operation.apply(worry_level);
 
-                let worry_level = if divisible != 1 {
+                let worry_level = if let Some(divisible) = divisible {
                     worry_level / divisible
                 } else {
                     worry_level % common_denominator
                 };
 
                 if worry_level % test.divisible == 0 {
-                    monkeys[test.if_true as usize].items.push(worry_level);
+                    monkeys[test.if_true].items.push(worry_level);
                 } else {
-                    monkeys[test.if_false as usize].items.push(worry_level);
+                    monkeys[test.if_false].items.push(worry_level);
                 }
 
                 monkeys[index].inspections += 1;
@@ -143,11 +130,11 @@ fn play(mut monkeys: Vec<Monkey>, num_rounds: u32, divisible: u64) -> u64 {
 
 /// Play a number of rounds, note how often items are inspected by monkeys
 fn part1(monkeys: Vec<Monkey>) -> u64 {
-    play(monkeys, 20, 3)
+    play(monkeys, 20, Some(3))
 }
 
 fn part2(monkeys: Vec<Monkey>) -> u64 {
-    play(monkeys, 10_000, 1)
+    play(monkeys, 10_000, None)
 }
 
 fn parse(input: &str) -> Vec<Monkey> {
