@@ -47,13 +47,13 @@ peg::parser! {
               test:test() "\n"?
             {
                 Monkey {
-                    id, items, test, operation, inspections: 0,
+                    _id: id, items, test, operation, inspections: 0,
                 }
             }
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 enum Operation {
     Mul(u64),
     Add(u64),
@@ -81,7 +81,7 @@ impl Display for Operation {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct Test {
     divisible: u64,
     if_true: u64,
@@ -91,7 +91,7 @@ struct Test {
 #[derive(Debug)]
 struct Monkey {
     /// The monkey identifier
-    id: u64,
+    _id: u64,
     /// The worrying levels of current items, each entry represents a separate item
     items: Vec<u64>,
     operation: Operation,
@@ -111,29 +111,45 @@ fn part1(mut monkeys: Vec<Monkey>) -> u64 {
         // play all monkeys' turns
         for index in 0..num_monkeys {
             println!("Monkey {}:", index);
-            let monkey = &mut monkeys[index];
-            for worry_level in monkey.items.drain(..) {
+
+            let items = monkeys[index].items.drain(..).collect::<Vec<_>>();
+            let operation = monkeys[index].operation;
+            let test = monkeys[index].test.clone();
+
+            for worry_level in items {
                 println!(
                     "  Monkey inspects an item with worry level of {}",
                     worry_level
                 );
-                let worry_level = monkey.operation.apply(worry_level);
+                let worry_level = operation.apply(worry_level);
 
-                println!("    Worry level is {} to {}", monkey.operation, worry_level);
+                println!("    Worry level is {} to {}", operation, worry_level);
                 let worry_level = worry_level / 3;
-                println!("    Monkey gets bored with item. Worry level is divided by 3 to {}.", worry_level);
+                println!(
+                    "    Monkey gets bored with item. Worry level is divided by 3 to {}.",
+                    worry_level
+                );
 
-                if worry_level % monkey.test.divisible == 0 {
-                    println!("    Current worry level is divisible by {}", monkey.test.divisible);
-                    println!("    Item with worry level {} is thrown to monkey {}", worry_level, monkey.test.if_true);
-                    monkeys[monkey.test.if_true as usize].items.push(worry_level);
+                if worry_level % test.divisible == 0 {
+                    println!("    Current worry level is divisible by {}", test.divisible);
+                    println!(
+                        "    Item with worry level {} is thrown to monkey {}",
+                        worry_level, test.if_true
+                    );
+                    monkeys[test.if_true as usize].items.push(worry_level);
                 } else {
-                    println!("    Current worry level is not divisble by {}", monkey.test.divisible);
-                    println!("    Item with worry level {} is thrown to monkey {}", worry_level, monkey.test.if_false);
-                    monkeys[monkey.test.if_false as usize].items.push(worry_level);
+                    println!(
+                        "    Current worry level is not divisble by {}",
+                        test.divisible
+                    );
+                    println!(
+                        "    Item with worry level {} is thrown to monkey {}",
+                        worry_level, test.if_false
+                    );
+                    monkeys[test.if_false as usize].items.push(worry_level);
                 }
 
-                monkey.inspections += 1;
+                monkeys[index].inspections += 1;
             }
         }
     }
@@ -149,7 +165,7 @@ fn parse(input: &str) -> Vec<Monkey> {
 }
 
 fn main() -> anyhow::Result<()> {
-    let mut monkeys = parse(include_str!("input.txt"));
+    let monkeys = parse(include_str!("input.txt"));
     println!("Part 1: {}", part1(monkeys));
     Ok(())
 }
