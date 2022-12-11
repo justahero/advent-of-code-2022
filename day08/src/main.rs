@@ -25,13 +25,13 @@ impl std::ops::Add for Pos {
 /// A struct to hold an Iterator used with [`TreeGrid::steps`].
 struct Steps<'a> {
     grid: &'a TreeGrid,
-    start: Pos,
+    pos: Pos,
     dir: Pos,
 }
 
 impl<'a> Steps<'a> {
-    pub fn new(grid: &'a TreeGrid, start: Pos, dir: Pos) -> Self {
-        Self { grid, start, dir }
+    pub fn new(grid: &'a TreeGrid, pos: Pos, dir: Pos) -> Self {
+        Self { grid, pos, dir }
     }
 }
 
@@ -39,8 +39,8 @@ impl<'a> Iterator for Steps<'a> {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.start = self.start + self.dir;
-        self.grid.get(self.start)
+        self.pos = self.pos + self.dir;
+        self.grid.get(self.pos)
     }
 }
 
