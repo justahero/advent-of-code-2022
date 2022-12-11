@@ -1,11 +1,13 @@
 //! Day 11: Monkey In the Middle
 
+use std::fmt::{Display, Formatter};
+
 peg::parser! {
     grammar monkey_parser() for str {
-        rule number() -> u32
+        rule number() -> u64
             = n:$(['0'..='9']+) {? n.parse().or(Err("Failed to parse number")) }
 
-        rule items() -> Vec<u32>
+        rule items() -> Vec<u64>
             = items:(number() ** ", ") { items }
 
         rule op_add() -> Operation
@@ -17,10 +19,10 @@ peg::parser! {
         rule op_mul_self() -> Operation
             = "* old" { Operation::MulSelf }
 
-        pub(crate) rule id() -> u32
+        pub(crate) rule id() -> u64
             = "Monkey " id:number() ":" { id }
 
-        pub(crate) rule starting_itmes() -> Vec<u32>
+        pub(crate) rule starting_itmes() -> Vec<u64>
             = "  Starting items: " items:items() { items }
 
         pub(crate) rule operation() -> Operation
@@ -45,7 +47,7 @@ peg::parser! {
               test:test() "\n"?
             {
                 Monkey {
-                    id, items, test, operation,
+                    id, items, test, operation, inspections: 0,
                 }
             }
     }
@@ -53,64 +55,115 @@ peg::parser! {
 
 #[derive(Debug, PartialEq, Eq)]
 enum Operation {
-    Mul(u32),
-    Add(u32),
+    Mul(u64),
+    Add(u64),
     MulSelf,
+}
+
+impl Operation {
+    pub fn apply(&self, level: u64) -> u64 {
+        match self {
+            Operation::Mul(value) => level * value,
+            Operation::Add(value) => level + value,
+            Operation::MulSelf => level * level,
+        }
+    }
+}
+
+impl Display for Operation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Operation::Mul(value) => format!("multiplied by {}", value),
+            Operation::Add(value) => format!("increases by {}", value),
+            Operation::MulSelf => format!("multiplied by itself"),
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 struct Test {
-    divisible: u32,
-    if_true: u32,
-    if_false: u32,
+    divisible: u64,
+    if_true: u64,
+    if_false: u64,
 }
 
 #[derive(Debug)]
 struct Monkey {
     /// The monkey identifier
-    id: u32,
-    /// The starting items.
-    items: Vec<u32>,
+    id: u64,
+    /// The worrying levels of current items, each entry represents a separate item
+    items: Vec<u64>,
     operation: Operation,
     test: Test,
+    // Count number of inspects
+    inspections: u32,
 }
 
-fn part1(monkeys: &[Monkey]) -> u64 {
+/// Play a number of rounds, note how often items are inspected by monkeys
+fn part1(mut monkeys: Vec<Monkey>) -> u64 {
+    let num_monkeys = monkeys.len();
+    let num_rounds = 1;
+
+    // play a nmber of N rounds
+    for _ in 0..num_rounds {
+        println!("Round 1");
+        // play all monkeys' turns
+        for index in 0..num_monkeys {
+            println!("Monkey {}:", index);
+            let monkey = &mut monkeys[index];
+            for worry_level in monkey.items.drain(..) {
+                println!(
+                    "  Monkey inspects an item with worry level of {}",
+                    worry_level
+                );
+                let worry_level = monkey.operation.apply(worry_level);
+
+                println!("    Worry level is {} to {}", monkey.operation, worry_level);
+                let worry_level = worry_level / 3;
+                println!("    Monkey gets bored with item. Worry level is divided by 3 to {}.", worry_level);
+
+                if worry_level % monkey.test.divisible == 0 {
+                    println!("    Current worry level is divisible by {}", monkey.test.divisible);
+                    println!("    Item with worry level {} is thrown to monkey {}", worry_level, monkey.test.if_true);
+                    monkeys[monkey.test.if_true as usize].items.push(worry_level);
+                } else {
+                    println!("    Current worry level is not divisble by {}", monkey.test.divisible);
+                    println!("    Item with worry level {} is thrown to monkey {}", worry_level, monkey.test.if_false);
+                    monkeys[monkey.test.if_false as usize].items.push(worry_level);
+                }
+
+                monkey.inspections += 1;
+            }
+        }
+    }
+
     0
 }
 
-fn parse(input: &str) -> anyhow::Result<Vec<Monkey>> {
-    let monkeys = input
+fn parse(input: &str) -> Vec<Monkey> {
+    input
         .split("\n\n")
-        .filter_map(|block| {
-            println!("BLOCK: '{}'", block);
-            monkey_parser::monkey(block).ok()
-        })
-        .collect::<Vec<Monkey>>();
-
-    println!("MONKEYS: {:?}", monkeys);
-
-    todo!("")
+        .filter_map(|block| monkey_parser::monkey(block).ok())
+        .collect::<Vec<Monkey>>()
 }
 
 fn main() -> anyhow::Result<()> {
-    let monkeys = parse(include_str!("input.txt"))?;
-    println!("Part 1: {}", part1(&monkeys));
+    let mut monkeys = parse(include_str!("input.txt"));
+    println!("Part 1: {}", part1(monkeys));
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use serde::Deserialize;
-
     use crate::*;
 
     const INPUT: &str = include_str!("test.txt");
 
     #[test]
     fn check_part1() {
-        let monkeys = parse(&INPUT).expect("Failed to parse input");
-        assert_eq!(10605, part1(&monkeys));
+        let monkeys = parse(&INPUT);
+        assert_eq!(10605, part1(monkeys));
     }
 
     #[test]
@@ -152,7 +205,6 @@ mod tests {
     If true: throw to monkey 2
     If false: throw to monkey 3";
 
-        let result = monkey_parser::monkey(input).expect("failed");
-        // assert!(monkey_parser::monkey(input).is_ok());
+        assert!(monkey_parser::monkey(input).is_ok());
     }
 }
