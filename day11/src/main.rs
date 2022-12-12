@@ -1,7 +1,5 @@
 //! Day 11: Monkey In the Middle
 
-use std::fmt::{Display, Formatter};
-
 use itertools::Itertools;
 
 peg::parser! {
