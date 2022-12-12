@@ -91,10 +91,9 @@ impl Grid {
 
         while let Some(pos) = positions.pop_front() {
             let current = self.get(pos).expect("Failed to get height.");
-            println!("VISITED: {:?}", visited);
 
             if current == 'E' {
-                break;
+                continue;
             }
 
             for neighbor in self.neighbors(pos).into_iter() {
@@ -103,15 +102,22 @@ impl Grid {
                 }
 
                 if let Some(elevation) = self.get(neighbor) {
+                    if current == 'z' && elevation == 'E' {
+                        break;
+                    }
+
                     // can only pass one step up but lower is always possible
-                    if current as u8 + 1 <= elevation as u8 {
-                        println!("  N: {} - {}", neighbor, elevation as char);
-                        positions.push_back(neighbor);
+                    // println!("  CMP: {} {} , {} {}", pos, neighbor, current, elevation);
+                    if (current as u8) <= (elevation as u8) - 1 {
+                        // println!("    visiting");
                         visited.push(neighbor);
+                        positions.push_back(neighbor);
                     }
                 }
             }
         }
+
+        println!("VISITED: {:?}", visited);
 
         visited.len()
     }
@@ -120,15 +126,11 @@ impl Grid {
         let mut neighbors = Vec::new();
         for &dir in Self::DIRECTIONS.iter() {
             let neighbor = pos + dir;
-            if self.is_inside(neighbor) {
+            if let Some(_) = self.get(neighbor) {
                 neighbors.push(neighbor);
             }
         }
         neighbors
-    }
-
-    fn is_inside(&self, Pos { x, y }: Pos) -> bool {
-        0 <= x && x < self.width as i32 && 0 <= y && y < self.height as i32
     }
 
     fn get(&self, Pos { x, y }: Pos) -> Option<char> {
