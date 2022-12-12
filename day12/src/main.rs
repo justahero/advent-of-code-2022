@@ -1,13 +1,14 @@
 //! Day 12: Hill Climbing Algorithm
 
 use std::{
-    collections::VecDeque,
     fmt::{Display, Formatter},
+    hash::Hash,
 };
 
 use itertools::Itertools;
+use pathfinding::directed::dijkstra;
 
-#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone, PartialOrd)]
 struct Pos {
     x: i32,
     y: i32,
@@ -69,11 +70,14 @@ impl Grid {
     pub fn add_line(mut self, row: impl Iterator<Item = char>) -> Self {
         let mut row = row.collect_vec();
         self.width = row.len();
-        if let Some(x) = row.iter().position(|&c| c == 'S') {
-            self.start = Pos::new(x as i32, self.height as i32);
+
+        if let Some(index) = row.iter().position(|&c| c == 'S') {
+            self.start = Pos::new(index as i32, self.height as i32);
+            row[index] = 'a';
         };
-        if let Some(x) = row.iter().position(|&c| c == 'E') {
-            self.end = Pos::new(x as i32, self.height as i32);
+        if let Some(index) = row.iter().position(|&c| c == 'E') {
+            self.end = Pos::new(index as i32, self.height as i32);
+            row[index] = 'z';
         }
 
         self.cells.append(&mut row);
@@ -81,45 +85,33 @@ impl Grid {
         self
     }
 
-    /// Breadth depth search
-    fn find_path(&self) -> usize {
-        let mut visited: Vec<Pos> = vec![self.start];
-        let mut positions: VecDeque<Pos> = VecDeque::new();
+    pub fn find_path(&self) -> Vec<Pos> {
+        let result = dijkstra::dijkstra(
+            &self.start,
+            |&pos| {
+                let height = self.get(pos).expect("Failed to get height") as i32;
+                let mut positions = Vec::new();
 
-        positions.push_back(self.start);
-        visited.push(self.start);
+                for neighbor in self.neighbors(pos).into_iter() {
+                    let dest = self.get(pos).expect("Failed to get dest") as i32;
+                    // println!("cmp {} = {}", height as char, dest as char);
 
-        while let Some(pos) = positions.pop_front() {
-            let current = self.get(pos).expect("Failed to get height.");
-
-            if current == 'E' {
-                continue;
-            }
-
-            for neighbor in self.neighbors(pos).into_iter() {
-                if visited.contains(&neighbor) {
-                    continue;
-                }
-
-                if let Some(elevation) = self.get(neighbor) {
-                    if current == 'z' && elevation == 'E' {
-                        break;
-                    }
-
-                    // can only pass one step up but lower is always possible
-                    // println!("  CMP: {} {} , {} {}", pos, neighbor, current, elevation);
-                    if (current as u8) <= (elevation as u8) - 1 {
-                        // println!("    visiting");
-                        visited.push(neighbor);
-                        positions.push_back(neighbor);
+                    // b != d
+                    // b -> c
+                    // b -> b
+                    // b -> a
+                    if dest - 1 <= height {
+                        positions.push((neighbor, 1));
                     }
                 }
-            }
-        }
+                positions
+            },
+            |&p| p == self.end,
+        );
 
-        println!("VISITED: {:?}", visited);
+        println!("RESULT: {:?}", result);
 
-        visited.len()
+        result.unwrap().0
     }
 
     fn neighbors(&self, pos: Pos) -> Vec<Pos> {
@@ -155,8 +147,10 @@ impl Display for Grid {
 }
 
 fn part1(grid: &Grid) -> usize {
-    println!("{}", grid);
-    grid.find_path()
+    println!("{}({}x{})", grid, grid.width, grid.height);
+    let path = grid.find_path();
+    println!("PATH: {:?}", path);
+    path.len()
 }
 
 fn parse(input: &str) -> Grid {
@@ -171,7 +165,10 @@ fn parse(input: &str) -> Grid {
 
 fn main() {
     let grid = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(&grid));
+    let result = part1(&grid);
+    println!("RESULT: {}", result);
+    assert!(result < 3795);
+    println!("Part 1: {}", result);
 }
 
 #[cfg(test)]
