@@ -41,6 +41,15 @@ impl Display for Pos {
     }
 }
 
+/// 'b', 'b' => true
+/// 'b', 'c' => true
+/// 'b', 'a' => true
+/// 'b', 'd' => false
+fn can_move(l: char, r: char) -> bool {
+    let (l, r) = (l as i32, r as i32);
+    (l - r).abs() <= 1 || l > r
+}
+
 struct Grid {
     start: Pos,
     end: Pos,
@@ -85,33 +94,25 @@ impl Grid {
         self
     }
 
-    pub fn find_path(&self) -> Vec<Pos> {
-        let result = dijkstra::dijkstra(
+    /// This function uses Dijkstra to find the shortest path.
+    pub fn find_shortest_path(&self) -> Option<(Vec<Pos>, i32)> {
+        dijkstra::dijkstra(
             &self.start,
             |&pos| {
-                let height = self.get(pos).expect("Failed to get height") as i32;
+                let height = self.get(pos).expect("Failed to get height");
                 let mut positions = Vec::new();
 
                 for neighbor in self.neighbors(pos).into_iter() {
-                    let dest = self.get(pos).expect("Failed to get dest") as i32;
-                    // println!("cmp {} = {}", height as char, dest as char);
-
-                    // b != d
-                    // b -> c
-                    // b -> b
-                    // b -> a
-                    if dest - 1 <= height {
+                    let dest = self.get(neighbor).expect("Failed to get dest");
+                    if can_move(height, dest) {
                         positions.push((neighbor, 1));
                     }
                 }
+
                 positions
             },
             |&p| p == self.end,
-        );
-
-        println!("RESULT: {:?}", result);
-
-        result.unwrap().0
+        )
     }
 
     fn neighbors(&self, pos: Pos) -> Vec<Pos> {
@@ -147,10 +148,8 @@ impl Display for Grid {
 }
 
 fn part1(grid: &Grid) -> usize {
-    println!("{}({}x{})", grid, grid.width, grid.height);
-    let path = grid.find_path();
-    println!("PATH: {:?}", path);
-    path.len()
+    let (path, _weight) = grid.find_shortest_path().unwrap();
+    path.len() - 1
 }
 
 fn parse(input: &str) -> Grid {
@@ -165,10 +164,7 @@ fn parse(input: &str) -> Grid {
 
 fn main() {
     let grid = parse(include_str!("input.txt"));
-    let result = part1(&grid);
-    println!("RESULT: {}", result);
-    assert!(result < 3795);
-    println!("Part 1: {}", result);
+    println!("Part 1: {}", part1(&grid));
 }
 
 #[cfg(test)]
@@ -182,6 +178,14 @@ mod tests {
         acctuvwj
         abdefghi
     "#;
+
+    #[test]
+    fn check_moves() {
+        assert!(can_move('b', 'b'));
+        assert!(can_move('b', 'c'));
+        assert!(can_move('b', 'a'));
+        assert!(!can_move('b', 'd'));
+    }
 
     #[test]
     fn check_part1() {
