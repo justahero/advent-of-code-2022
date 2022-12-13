@@ -115,6 +115,20 @@ impl Grid {
         )
     }
 
+    /// Find the shortest path from all fields that start on 'a' elevation.
+    pub fn find_scenic_path(&self) -> Vec<u32> {
+        let scenic_spots = (0..self.width as i32)
+            .cartesian_product(0..self.height as i32)
+            .filter(|(x, y)| self.cells[(y * self.width as i32 + x) as usize] == 'a')
+            .collect::<Vec<_>>();
+
+        scenic_spots
+            .iter()
+            .filter_map(|&(x, y)| self.find_shortest_path(&Pos::new(x, y)))
+            .map(|(_, length)| length as u32)
+            .collect()
+    }
+
     fn neighbors(&self, pos: Pos) -> Vec<Pos> {
         let mut neighbors = Vec::new();
         for &dir in Self::DIRECTIONS.iter() {
@@ -148,8 +162,13 @@ impl Display for Grid {
 }
 
 fn part1(grid: &Grid) -> usize {
-    let (path, _weight) = grid.find_shortest_path(&grid.start).unwrap();
+    let (path, _length) = grid.find_shortest_path(&grid.start).unwrap();
     path.len() - 1
+}
+
+fn part2(grid: &Grid) -> u32 {
+    let result = grid.find_scenic_path();
+    result.iter().min().cloned().expect("Failed to get length")
 }
 
 fn parse(input: &str) -> Grid {
@@ -165,6 +184,7 @@ fn parse(input: &str) -> Grid {
 fn main() {
     let grid = parse(include_str!("input.txt"));
     println!("Part 1: {}", part1(&grid));
+    println!("Part 2: {}", part2(&grid));
 }
 
 #[cfg(test)]
@@ -190,5 +210,10 @@ mod tests {
     #[test]
     fn check_part1() {
         assert_eq!(31, part1(&parse(INPUT)));
+    }
+
+    #[test]
+    fn check_part2() {
+        assert_eq!(29, part2(&parse(INPUT)));
     }
 }
