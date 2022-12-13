@@ -1,5 +1,5 @@
 [package]
-name = "aoc-2022-day-11"
+name = "aoc-2022-day-13"
 version = "0.1.0"
 authors = ["Sebastian Ziebell <sebastian.ziebell@gmail.com"]
 edition = "2021"
@@ -8,6 +8,4 @@ publish = false
 [dependencies]
 anyhow = "1.0"
 itertools = "0.10.5"
-peg = "0.8.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9.14"
+nom = "7.1.1"
