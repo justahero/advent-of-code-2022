@@ -4,7 +4,7 @@ use nom::{
 };
 
 /// Recursive structure to keep (nested) lists & digits
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Ord, Clone)]
 enum Entry {
     List(Vec<Entry>),
     Int(u8),
@@ -48,12 +48,14 @@ impl From<&str> for Entry {
     }
 }
 
-fn part1(pairs: &[(Entry, Entry)]) -> u32 {
+fn part1(pairs: &[Entry]) -> u32 {
     pairs
         .iter()
+        .as_slice()
+        .chunks(2)
         .enumerate()
-        .fold(0, |sum, (index, (left, right))| {
-            if left < right {
+        .fold(0, |sum, (index, pair)| {
+            if &pair[0] < &pair[1] {
                 sum + 1 + index as u32
             } else {
                 sum
@@ -61,18 +63,33 @@ fn part1(pairs: &[(Entry, Entry)]) -> u32 {
         })
 }
 
-fn parse(input: &str) -> Vec<(Entry, Entry)> {
+fn part2(mut pairs: Vec<Entry>) -> usize {
+    let left: Entry = Entry::from("[[2]]");
+    let right: Entry = Entry::from("[[6]]");
+
+    pairs.push(Entry::from("[[2]]"));
+    pairs.push(Entry::from("[[6]]"));
+    pairs.sort_unstable();
+
+    let first = pairs.iter().position(|p| *p == left).unwrap() + 1;
+    let second = pairs.iter().position(|p| *p == right).unwrap() + 1;
+
+    first * second
+}
+
+fn parse(input: &str) -> Vec<Entry> {
     input
-        .split("\n\n")
-        .into_iter()
-        .filter_map(|block| block.split_once("\n"))
-        .map(|(left, right)| (Entry::from(left), Entry::from(right)))
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(|line| Entry::from(line))
         .collect()
 }
 
 fn main() {
     let pairs = parse(include_str!("input.txt"));
     println!("Part 1: {}", part1(&pairs));
+    println!("Part 2: {}", part2(pairs));
 }
 
 #[cfg(test)]
@@ -109,5 +126,10 @@ mod tests {
     #[test]
     fn check_part1() {
         assert_eq!(13, part1(&parse(INPUT)));
+    }
+
+    #[test]
+    fn check_part2() {
+        assert_eq!(140, part2(parse(INPUT)));
     }
 }
