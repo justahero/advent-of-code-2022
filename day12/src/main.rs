@@ -95,9 +95,9 @@ impl Grid {
     }
 
     /// This function uses Dijkstra to find the shortest path.
-    pub fn find_shortest_path(&self) -> Option<(Vec<Pos>, i32)> {
+    pub fn find_shortest_path(&self, start: &Pos) -> Option<(Vec<Pos>, i32)> {
         dijkstra::dijkstra(
-            &self.start,
+            start,
             |&pos| {
                 let height = self.get(pos).expect("Failed to get height");
                 let mut positions = Vec::new();
@@ -148,7 +148,7 @@ impl Display for Grid {
 }
 
 fn part1(grid: &Grid) -> usize {
-    let (path, _weight) = grid.find_shortest_path().unwrap();
+    let (path, _weight) = grid.find_shortest_path(&grid.start).unwrap();
     path.len() - 1
 }
 
