@@ -18,43 +18,31 @@ impl Pair {
     }
 }
 
-#[derive(Debug)]
-struct List(Vec<Entry>);
-
-#[derive(Debug)]
+/// Recursive structure to keep (nested) lists & digits
+#[derive(Debug, PartialEq, Eq)]
 enum Entry {
-    List(List),
-    Numbers(Vec<u8>),
+    List(Box<Vec<Entry>>),
+    Int(u8),
 }
 
 impl Entry {
     pub fn int(input: &str) -> Self {
-        Entry::Numbers(vec![format!("{}", input)
-            .parse::<u8>()
-            .expect("Failed to parse number")])
-    }
-
-    pub fn numbers(input: &[&str]) -> Self {
-        let numbers = input
-            .iter()
-            .filter_map(|s| format!("{}", s).parse::<u8>().ok())
-            .collect::<Vec<_>>();
-        Entry::Numbers(numbers)
+        Entry::Int(
+            format!("{}", input)
+                .parse::<u8>()
+                .expect("Failed to parse number"),
+        )
     }
 }
 
 fn parse_entry(input: &str) -> IResult<&str, Entry> {
-    let (input, entry) = alt((
-        map(delimited(tag("["), parse_entry, tag("]")), |inner| {
-            Entry::List(List(vec![inner]))
-        }),
-        map(separated_list1(tag(","), digit1), |n| Entry::numbers(&n)),
+    alt((
+        map(
+            delimited(tag("["), separated_list1(tag(","), parse_entry), tag("]")),
+            |inner| Entry::List(Box::new(inner)),
+        ),
         map(digit1, Entry::int),
-    ))(input)?;
-
-    // delimited(tag("["), parse_entry, tag("]"))(input)?;
-
-    todo!("")
+    ))(input)
 }
 
 fn part1(pairs: &[Pair]) -> u32 {
@@ -83,6 +71,29 @@ mod tests {
     use super::*;
 
     const INPUT: &str = include_str!("test.txt");
+
+    #[test]
+    fn check_parse_entry() {
+        let (_, entry) = parse_entry("[1,1,3,1,1]").unwrap();
+        assert_eq!(
+            Entry::List(Box::new(vec![
+                Entry::Int(1),
+                Entry::Int(1),
+                Entry::Int(3),
+                Entry::Int(1),
+                Entry::Int(1)
+            ])),
+            entry
+        );
+        let (_, entry) = parse_entry("[[1],[2,3,4]]").unwrap();
+        assert_eq!(
+            Entry::List(Box::new(vec![
+                Entry::List(Box::new(vec![Entry::Int(1)])),
+                Entry::List(Box::new(vec![Entry::Int(2), Entry::Int(3), Entry::Int(4)])),
+            ])),
+            entry
+        );
+    }
 
     #[test]
     fn check_part1() {
