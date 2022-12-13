@@ -49,15 +49,16 @@ impl From<&str> for Entry {
 }
 
 fn part1(pairs: &[(Entry, Entry)]) -> u32 {
-    let mut sum = 0u32;
-    for (index, (left, right)) in pairs.iter().enumerate() {
-        if left < right {
-            println!("Index: {}", index);
-            sum = sum + 1 + index as u32;
-        }
-    }
-
-    sum
+    pairs
+        .iter()
+        .enumerate()
+        .fold(0, |sum, (index, (left, right))| {
+            if left < right {
+                sum + 1 + index as u32
+            } else {
+                sum
+            }
+        })
 }
 
 fn parse(input: &str) -> Vec<(Entry, Entry)> {
