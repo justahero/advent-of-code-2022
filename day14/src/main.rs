@@ -19,6 +19,12 @@ enum Cell {
     Sand,
 }
 
+impl Cell {
+    pub fn is_blocked(&self) -> bool {
+        matches!(self, Cell::Rock | Cell::Sand)
+    }
+}
+
 impl Display for Cell {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let s = match self {
@@ -30,7 +36,7 @@ impl Display for Cell {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Rect {
     min: Pos,
     max: Pos,
@@ -44,12 +50,12 @@ impl Rect {
         }
     }
 
-    pub fn width(&self) -> usize {
-        (self.max.x - self.min.x) as usize
+    pub fn width(&self) -> i32 {
+        self.max.x - self.min.x
     }
 
-    pub fn height(&self) -> usize {
-        (self.max.y - self.min.y) as usize
+    pub fn height(&self) -> i32 {
+        self.max.y - self.min.y
     }
 }
 
@@ -143,7 +149,7 @@ fn parse_lines(input: &str) -> PolyLine {
     PolyLine::new(points)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Grid {
     cells: Vec<Cell>,
     bounds: Rect,
@@ -155,13 +161,64 @@ impl Grid {
     }
 
     #[inline]
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> i32 {
         self.bounds.width()
     }
 
     #[inline]
-    pub fn height(&self) -> usize {
+    pub fn height(&self) -> i32 {
         self.bounds.height()
+    }
+
+    pub fn fill_sand(&mut self) -> usize {
+        loop {
+            let sand = Pos::new(500, 0);
+            if !self.scan(sand) {
+                break;
+            }
+        }
+
+        // count all the sands
+        self.cells
+            .iter()
+            .filter(|&&cell| cell == Cell::Sand)
+            .count()
+    }
+
+    fn scan(&mut self, sand: Pos) -> bool {
+        let directions = [Pos::new(0, 1), Pos::new(-1, 1), Pos::new(1, 1)];
+        let mut sand = Pos::new(sand.x - self.bounds.min.x, sand.y);
+
+        loop {
+            // advance sand one step in any direction
+            let next_pos = directions.iter().map(|dir| sand + *dir).find(|&next_pos| {
+                match self.get(next_pos) {
+                    Some(cell) => !cell.is_blocked(),
+                    _ => false,
+                }
+            });
+
+            match next_pos {
+                Some(pos) => {
+                    assert!(self.get(pos).unwrap() == Cell::Air);
+                    sand = pos;
+                }
+                None => {
+                    // There was no free spot, if it's inside boundaries set sand
+                    if 0 <= sand.x
+                        && sand.x <= self.width()
+                        && 0 <= sand.y
+                        && sand.y < self.height() - 1
+                    {
+                        self.set_cell(sand, Cell::Sand);
+                        return true;
+                    }
+                    break;
+                }
+            }
+        }
+
+        false
     }
 
     pub fn build(lines: Vec<PolyLine>) -> Self {
@@ -176,11 +233,11 @@ impl Grid {
                 max.y = max.y.max(pos.y);
             }
         }
-        let bounds = Rect::new(min.x, 0, max.x + 1, max.y + 1);
+        let bounds = Rect::new(min.x - 1, 0, max.x + 1, max.y + 1);
         let width = bounds.width();
         let height = bounds.height();
 
-        let mut cells = vec![Cell::Air; width * height];
+        let mut cells = vec![Cell::Air; (width * height) as usize];
 
         // mark the grid with blocks
         for line in lines.iter() {
@@ -192,7 +249,7 @@ impl Grid {
                     for _ in 0..=height {
                         let x = (pos.x - min.x) as usize;
                         let y = pos.y as usize;
-                        cells[y * width + x] = Cell::Rock;
+                        cells[y * width as usize + x] = Cell::Rock;
                         pos += dir;
                     }
                 }
@@ -201,6 +258,24 @@ impl Grid {
 
         Self::new(cells, bounds)
     }
+
+    /// Returns the cell at given coordinates.
+    /// The x-coordinate has to be adjusted by the bounds to fit in.
+    fn get(&self, Pos { x, y }: Pos) -> Option<Cell> {
+        if 0 <= x && x < self.width() as i32 && 0 <= y && y < self.height() as i32 {
+            Some(self.cells[(y * self.width() as i32 + x) as usize])
+        } else {
+            None
+        }
+    }
+
+    fn set_cell(&mut self, Pos { x, y }: Pos, cell: Cell) {
+        assert!(0 <= x && x < self.width() as i32);
+        assert!(0 <= y && y < self.height() as i32);
+
+        let index = (y * self.width() + x) as usize;
+        self.cells[index] = cell;
+    }
 }
 
 impl Display for Grid {
@@ -208,7 +283,7 @@ impl Display for Grid {
         for y in 0..self.height() {
             for x in 0..self.width() {
                 let index = y * self.width() + x;
-                write!(f, "{}", self.cells[index])?;
+                write!(f, "{}", self.cells[index as usize])?;
             }
             writeln!(f)?;
         }
@@ -216,8 +291,8 @@ impl Display for Grid {
     }
 }
 
-fn part1(grid: &Grid) -> u32 {
-    0
+fn part1(mut grid: Grid) -> usize {
+    grid.fill_sand()
 }
 
 fn parse(input: &str) -> Grid {
@@ -228,16 +303,12 @@ fn parse(input: &str) -> Grid {
         .map(parse_lines)
         .collect_vec();
 
-    let grid = Grid::build(lines);
-
-    println!("GRID:\n{}", grid);
-
-    grid
+    Grid::build(lines)
 }
 
 fn main() {
-    let pairs = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(&pairs));
+    let grid = parse(include_str!("input.txt"));
+    println!("Part 1: {}", part1(grid.clone()));
 }
 
 #[cfg(test)]
@@ -262,6 +333,6 @@ mod tests {
 
     #[test]
     fn check_part1() {
-        assert_eq!(24, part1(&parse(INPUT)));
+        assert_eq!(24, part1(parse(INPUT)));
     }
 }
