@@ -1,6 +1,9 @@
 //! Day 14: Regolith Reservoir
 
-use std::fmt::{Display, Formatter};
+use std::{
+    cmp::Ordering,
+    fmt::{Display, Formatter},
+};
 
 use itertools::Itertools;
 use nom::{
@@ -59,6 +62,30 @@ struct Pos {
 impl Pos {
     pub fn new(x: i32, y: i32) -> Self {
         Self { x, y }
+    }
+
+    /// Returns a directional Vector to advance one knot to the other
+    pub fn get_dir(&self, target: &Pos) -> Pos {
+        let x = match target.x.cmp(&self.x) {
+            Ordering::Less => 1,
+            Ordering::Equal => 0,
+            Ordering::Greater => -1,
+        };
+        let y = match target.y.cmp(&self.y) {
+            Ordering::Less => 1,
+            Ordering::Equal => 0,
+            Ordering::Greater => -1,
+        };
+        Pos::new(x, y)
+    }
+
+    /// This assumes one axis is the same, either x or y
+    fn distance(&self, rhs: &Pos) -> i32 {
+        if self.x == rhs.x {
+            (rhs.y - self.y).abs()
+        } else {
+            (rhs.x - self.x).abs()
+        }
     }
 }
 
@@ -146,11 +173,10 @@ impl Grid {
             for pos in &line.points {
                 min.x = min.x.min(pos.x);
                 max.x = max.x.max(pos.x);
-                min.y = min.y.min(pos.y);
                 max.y = max.y.max(pos.y);
             }
         }
-        let bounds = Rect::new(min.x, min.y, max.x, max.y);
+        let bounds = Rect::new(min.x, 0, max.x + 1, max.y + 1);
         let width = bounds.width();
         let height = bounds.height();
 
@@ -160,6 +186,15 @@ impl Grid {
         for line in lines.iter() {
             for line in line.points.windows(2) {
                 if let [l, r] = line {
+                    let dir = r.get_dir(l);
+                    let height = l.distance(r);
+                    let mut pos = *l;
+                    for _ in 0..=height {
+                        let x = (pos.x - min.x) as usize;
+                        let y = pos.y as usize;
+                        cells[y * width + x] = Cell::Rock;
+                        pos += dir;
+                    }
                 }
             }
         }
