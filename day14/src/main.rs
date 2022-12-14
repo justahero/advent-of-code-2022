@@ -151,8 +151,10 @@ fn parse_lines(input: &str) -> PolyLine {
 
 #[derive(Debug, Clone)]
 struct Grid {
+    /// TODO split into rocks & sands?
     cells: Vec<Cell>,
     bounds: Rect,
+    // TODO Add a max y coordinate, the abyss
 }
 
 impl Grid {
@@ -177,6 +179,8 @@ impl Grid {
                 break;
             }
         }
+
+        println!("{}", self);
 
         // count all the sands
         self.cells
@@ -208,7 +212,7 @@ impl Grid {
                     if 0 <= sand.x
                         && sand.x <= self.width()
                         && 0 <= sand.y
-                        && sand.y < self.height() - 1
+                        && sand.y < self.bounds.max.y - 1
                     {
                         self.set_cell(sand, Cell::Sand);
                         return true;
@@ -308,7 +312,10 @@ fn parse(input: &str) -> Grid {
 
 fn main() {
     let grid = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(grid.clone()));
+    let result = part1(grid.clone());
+
+    assert!(result < 633);
+    println!("Part 1: {}", result);
 }
 
 #[cfg(test)]
