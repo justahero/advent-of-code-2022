@@ -1,10 +1,31 @@
 //! Day 14: Regolith Reservoir
 
-use itertools::{Itertools, MinMaxResult};
+use std::fmt::{Display, Formatter};
+
+use itertools::Itertools;
 use nom::{
     bytes::complete::tag, character::complete::digit1, combinator::map_res, multi::separated_list1,
     sequence::tuple, IResult,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+enum Cell {
+    Rock = 0,
+    Air,
+    Sand,
+}
+
+impl Display for Cell {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Cell::Rock => "#",
+            Cell::Air => ".",
+            Cell::Sand => "o",
+        };
+        write!(f, "{}", s)
+    }
+}
 
 #[derive(Debug)]
 struct Rect {
@@ -12,7 +33,24 @@ struct Rect {
     max: Pos,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+impl Rect {
+    pub fn new(minx: i32, miny: i32, maxx: i32, maxy: i32) -> Self {
+        Self {
+            min: Pos::new(minx, miny),
+            max: Pos::new(maxx, maxy),
+        }
+    }
+
+    pub fn width(&self) -> usize {
+        (self.max.x - self.min.x) as usize
+    }
+
+    pub fn height(&self) -> usize {
+        (self.max.y - self.min.y) as usize
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 struct Pos {
     x: i32,
     y: i32,
@@ -21,6 +59,35 @@ struct Pos {
 impl Pos {
     pub fn new(x: i32, y: i32) -> Self {
         Self { x, y }
+    }
+}
+
+impl std::ops::AddAssign for Pos {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl std::ops::Add for Pos {
+    type Output = Pos;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl std::ops::Sub for Pos {
+    type Output = Pos;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            x: rhs.x - self.x,
+            y: rhs.y - self.y,
+        }
     }
 }
 
@@ -51,32 +118,66 @@ fn parse_lines(input: &str) -> PolyLine {
 
 #[derive(Debug)]
 struct Grid {
-    lines: Vec<PolyLine>,
+    cells: Vec<Cell>,
     bounds: Rect,
 }
 
 impl Grid {
-    pub fn new() -> Self {
-        Self {
-            lines: vec![],
-            bounds: Rect {
-                min: Pos::new(i32::MAX, i32::MAX),
-                max: Pos::new(i32::MIN, i32::MIN),
-            },
-        }
+    pub fn new(cells: Vec<Cell>, bounds: Rect) -> Self {
+        Self { cells, bounds }
     }
 
-    pub fn add_line(mut self, line: PolyLine) -> Self {
-        if let MinMaxResult::MinMax(min, max) = line.points.iter().map(|p| p.x).minmax() {
-            self.bounds.min.x = self.bounds.min.x.min(min);
-            self.bounds.max.x = self.bounds.max.x.max(max);
+    #[inline]
+    pub fn width(&self) -> usize {
+        self.bounds.width()
+    }
+
+    #[inline]
+    pub fn height(&self) -> usize {
+        self.bounds.height()
+    }
+
+    pub fn build(lines: Vec<PolyLine>) -> Self {
+        let mut min = Pos::new(i32::MAX, i32::MAX);
+        let mut max = Pos::new(i32::MIN, i32::MIN);
+
+        // get dimensions
+        for line in lines.iter() {
+            for pos in &line.points {
+                min.x = min.x.min(pos.x);
+                max.x = max.x.max(pos.x);
+                min.y = min.y.min(pos.y);
+                max.y = max.y.max(pos.y);
+            }
         }
-        if let MinMaxResult::MinMax(min, max) = line.points.iter().map(|p| p.y).minmax() {
-            self.bounds.min.y = self.bounds.min.y.min(min);
-            self.bounds.max.y = self.bounds.max.y.max(max);
+        let bounds = Rect::new(min.x, min.y, max.x, max.y);
+        let width = bounds.width();
+        let height = bounds.height();
+
+        let mut cells = vec![Cell::Air; width * height];
+
+        // mark the grid with blocks
+        for line in lines.iter() {
+            for line in line.points.windows(2) {
+                if let [l, r] = line {
+                }
+            }
         }
-        self.lines.push(line);
-        self
+
+        Self::new(cells, bounds)
+    }
+}
+
+impl Display for Grid {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for y in 0..self.height() {
+            for x in 0..self.width() {
+                let index = y * self.width() + x;
+                write!(f, "{}", self.cells[index])?;
+            }
+            writeln!(f)?;
+        }
+        writeln!(f)
     }
 }
 
@@ -85,12 +186,18 @@ fn part1(grid: &Grid) -> u32 {
 }
 
 fn parse(input: &str) -> Grid {
-    input
+    let lines = input
         .lines()
         .map(str::trim)
-        .filter(|line| !line.is_empty())
+        .filter(|&line| !line.is_empty())
         .map(parse_lines)
-        .fold(Grid::new(), |grid, line| grid.add_line(line))
+        .collect_vec();
+
+    let grid = Grid::build(lines);
+
+    println!("GRID:\n{}", grid);
+
+    grid
 }
 
 fn main() {
