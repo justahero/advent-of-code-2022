@@ -1,14 +1,12 @@
 //! Day 14: Regolith Reservoir
 
+use itertools::{Itertools, MinMaxResult};
 use nom::{
-    bytes::complete::tag,
-    character::complete::digit1,
-    combinator::{map, map_res},
-    multi::separated_list1,
-    sequence::tuple,
-    IResult,
+    bytes::complete::tag, character::complete::digit1, combinator::map_res, multi::separated_list1,
+    sequence::tuple, IResult,
 };
 
+#[derive(Debug)]
 struct Rect {
     min: Pos,
     max: Pos,
@@ -54,11 +52,31 @@ fn parse_lines(input: &str) -> PolyLine {
 #[derive(Debug)]
 struct Grid {
     lines: Vec<PolyLine>,
+    bounds: Rect,
 }
 
 impl Grid {
     pub fn new() -> Self {
-        Self { lines: vec![] }
+        Self {
+            lines: vec![],
+            bounds: Rect {
+                min: Pos::new(i32::MAX, i32::MAX),
+                max: Pos::new(i32::MIN, i32::MIN),
+            },
+        }
+    }
+
+    pub fn add_line(mut self, line: PolyLine) -> Self {
+        if let MinMaxResult::MinMax(min, max) = line.points.iter().map(|p| p.x).minmax() {
+            self.bounds.min.x = self.bounds.min.x.min(min);
+            self.bounds.max.x = self.bounds.max.x.max(max);
+        }
+        if let MinMaxResult::MinMax(min, max) = line.points.iter().map(|p| p.y).minmax() {
+            self.bounds.min.y = self.bounds.min.y.min(min);
+            self.bounds.max.y = self.bounds.max.y.max(max);
+        }
+        self.lines.push(line);
+        self
     }
 }
 
@@ -67,14 +85,12 @@ fn part1(grid: &Grid) -> u32 {
 }
 
 fn parse(input: &str) -> Grid {
-    let lines = input
+    input
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
         .map(parse_lines)
-        .collect::<Vec<PolyLine>>();
-
-    Grid::new()
+        .fold(Grid::new(), |grid, line| grid.add_line(line))
 }
 
 fn main() {
