@@ -2,6 +2,7 @@
 
 use std::{
     cmp::Ordering,
+    collections::BTreeMap,
     fmt::{Display, Formatter},
 };
 
@@ -36,30 +37,7 @@ impl Display for Cell {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Rect {
-    min: Pos,
-    max: Pos,
-}
-
-impl Rect {
-    pub fn new(minx: i32, miny: i32, maxx: i32, maxy: i32) -> Self {
-        Self {
-            min: Pos::new(minx, miny),
-            max: Pos::new(maxx, maxy),
-        }
-    }
-
-    pub fn width(&self) -> i32 {
-        self.max.x - self.min.x
-    }
-
-    pub fn height(&self) -> i32 {
-        self.max.y - self.min.y
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Copy, Clone)]
 struct Pos {
     x: i32,
     y: i32,
@@ -68,30 +46,6 @@ struct Pos {
 impl Pos {
     pub fn new(x: i32, y: i32) -> Self {
         Self { x, y }
-    }
-
-    /// Returns a directional Vector to advance one knot to the other
-    pub fn get_dir(&self, target: &Pos) -> Pos {
-        let x = match target.x.cmp(&self.x) {
-            Ordering::Less => 1,
-            Ordering::Equal => 0,
-            Ordering::Greater => -1,
-        };
-        let y = match target.y.cmp(&self.y) {
-            Ordering::Less => 1,
-            Ordering::Equal => 0,
-            Ordering::Greater => -1,
-        };
-        Pos::new(x, y)
-    }
-
-    /// This assumes one axis is the same, either x or y
-    fn distance(&self, rhs: &Pos) -> i32 {
-        if self.x == rhs.x {
-            (rhs.y - self.y).abs()
-        } else {
-            (rhs.x - self.x).abs()
-        }
     }
 }
 
@@ -151,73 +105,50 @@ fn parse_lines(input: &str) -> PolyLine {
 
 #[derive(Debug, Clone)]
 struct Grid {
-    /// TODO split into rocks & sands?
-    cells: Vec<Cell>,
-    bounds: Rect,
-    // TODO Add a max y coordinate, the abyss
+    cells: BTreeMap<Pos, Cell>,
+    /// The max depth of the lowest rock
+    depth: i32,
 }
 
 impl Grid {
-    pub fn new(cells: Vec<Cell>, bounds: Rect) -> Self {
-        Self { cells, bounds }
-    }
-
-    #[inline]
-    pub fn width(&self) -> i32 {
-        self.bounds.width()
-    }
-
-    #[inline]
-    pub fn height(&self) -> i32 {
-        self.bounds.height()
+    pub fn new(cells: BTreeMap<Pos, Cell>, depth: i32) -> Self {
+        Self { cells, depth }
     }
 
     pub fn fill_sand(&mut self) -> usize {
-        loop {
-            let sand = Pos::new(500, 0);
-            if !self.scan(sand) {
-                break;
-            }
-        }
-
-        println!("{}", self);
+        while self.scan(Pos::new(500, 0)) {}
 
         // count all the sands
         self.cells
             .iter()
-            .filter(|&&cell| cell == Cell::Sand)
+            .filter(|(_pos, &cell)| cell == Cell::Sand)
             .count()
     }
 
     fn scan(&mut self, sand: Pos) -> bool {
+        // down, left-down, right-down
         let directions = [Pos::new(0, 1), Pos::new(-1, 1), Pos::new(1, 1)];
-        let mut sand = Pos::new(sand.x - self.bounds.min.x, sand.y);
+        let mut sand = sand;
 
         loop {
-            // advance sand one step in any direction
+            // advance one step in any direction
             let next_pos = directions.iter().map(|dir| sand + *dir).find(|&next_pos| {
-                match self.get(next_pos) {
+                match self.get(&next_pos) {
                     Some(cell) => !cell.is_blocked(),
-                    _ => false,
+                    _ => true,
                 }
             });
 
             match next_pos {
                 Some(pos) => {
-                    assert!(self.get(pos).unwrap() == Cell::Air);
-                    sand = pos;
+                    if pos.y >= self.depth {
+                        break;
+                    }
+                    sand = pos.clone();
                 }
                 None => {
-                    // There was no free spot, if it's inside boundaries set sand
-                    if 0 <= sand.x
-                        && sand.x <= self.width()
-                        && 0 <= sand.y
-                        && sand.y < self.bounds.max.y - 1
-                    {
-                        self.set_cell(sand, Cell::Sand);
-                        return true;
-                    }
-                    break;
+                    self.cells.insert(sand, Cell::Sand);
+                    return true;
                 }
             }
         }
@@ -226,68 +157,76 @@ impl Grid {
     }
 
     pub fn build(lines: Vec<PolyLine>) -> Self {
-        let mut min = Pos::new(i32::MAX, i32::MAX);
-        let mut max = Pos::new(i32::MIN, i32::MIN);
+        let mut depth = i32::MIN;
 
-        // get dimensions
+        // get max depth, the abyss
         for line in lines.iter() {
             for pos in &line.points {
-                min.x = min.x.min(pos.x);
-                max.x = max.x.max(pos.x);
-                max.y = max.y.max(pos.y);
+                depth = i32::max(depth, pos.y);
             }
         }
-        let bounds = Rect::new(min.x - 1, 0, max.x + 1, max.y + 1);
-        let width = bounds.width();
-        let height = bounds.height();
 
-        let mut cells = vec![Cell::Air; (width * height) as usize];
+        let mut cells = BTreeMap::new();
 
         // mark the grid with blocks
         for line in lines.iter() {
             for line in line.points.windows(2) {
                 if let [l, r] = line {
-                    let dir = r.get_dir(l);
-                    let height = l.distance(r);
-                    let mut pos = *l;
-                    for _ in 0..=height {
-                        let x = (pos.x - min.x) as usize;
-                        let y = pos.y as usize;
-                        cells[y * width as usize + x] = Cell::Rock;
-                        pos += dir;
+                    // vertical line
+                    if l.x == r.x {
+                        let x = l.x;
+                        let y_start = i32::min(l.y, r.y);
+                        let y_end = i32::max(l.y, r.y);
+                        for y in y_start..=y_end {
+                            cells.insert(Pos::new(x, y), Cell::Rock);
+                        }
+                    } else {
+                        // horizontal line
+                        let y = l.y;
+                        let x_start = i32::min(l.x, r.x);
+                        let x_end = i32::max(l.x, r.x);
+                        for x in x_start..=x_end {
+                            cells.insert(Pos::new(x, y), Cell::Rock);
+                        }
                     }
                 }
             }
         }
 
-        Self::new(cells, bounds)
+        Self::new(cells, depth)
     }
 
     /// Returns the cell at given coordinates.
     /// The x-coordinate has to be adjusted by the bounds to fit in.
-    fn get(&self, Pos { x, y }: Pos) -> Option<Cell> {
-        if 0 <= x && x < self.width() as i32 && 0 <= y && y < self.height() as i32 {
-            Some(self.cells[(y * self.width() as i32 + x) as usize])
-        } else {
-            None
-        }
+    fn get(&self, pos: &Pos) -> Option<&Cell> {
+        self.cells.get(pos)
     }
 
-    fn set_cell(&mut self, Pos { x, y }: Pos, cell: Cell) {
-        assert!(0 <= x && x < self.width() as i32);
-        assert!(0 <= y && y < self.height() as i32);
-
-        let index = (y * self.width() + x) as usize;
-        self.cells[index] = cell;
+    /// Sets an Air cell to Sand
+    fn set_cell(&mut self, pos: Pos, cell: Cell) {
+        self.cells.insert(pos, cell);
     }
 }
 
 impl Display for Grid {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for y in 0..self.height() {
-            for x in 0..self.width() {
-                let index = y * self.width() + x;
-                write!(f, "{}", self.cells[index as usize])?;
+        let mut min_x = i32::MAX;
+        let mut max_x = i32::MIN;
+
+        // get dimensions
+        for (pos, _) in self.cells.iter() {
+            min_x = i32::min(min_x, pos.x);
+            max_x = i32::max(max_x, pos.x);
+        }
+
+        let width = max_x - min_x;
+
+        for y in 0..=self.depth {
+            for x in 0..=width {
+                match self.cells.get(&Pos::new(x + min_x, y)) {
+                    Some(cell) => write!(f, "{}", cell)?,
+                    None => write!(f, "{}", Cell::Air)?,
+                }
             }
             writeln!(f)?;
         }
@@ -315,6 +254,7 @@ fn main() {
     let result = part1(grid.clone());
 
     assert!(result < 633);
+    assert!(417 < result);
     println!("Part 1: {}", result);
 }
 
