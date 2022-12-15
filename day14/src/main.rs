@@ -108,11 +108,29 @@ struct Grid {
     cells: BTreeMap<Pos, Cell>,
     /// The max depth of the lowest rock
     depth: i32,
+    /// The minimum x
+    min_x: i32,
+    /// The maximum x
+    max_x: i32,
 }
 
 impl Grid {
     pub fn new(cells: BTreeMap<Pos, Cell>, depth: i32) -> Self {
-        Self { cells, depth }
+        let mut min_x = i32::MAX;
+        let mut max_x = i32::MIN;
+
+        // get dimensions
+        for (pos, _) in cells.iter() {
+            min_x = i32::min(min_x, pos.x);
+            max_x = i32::max(max_x, pos.x);
+        }
+
+        Self {
+            cells,
+            depth,
+            min_x,
+            max_x,
+        }
     }
 
     pub fn fill_sand(&mut self) -> usize {
@@ -125,10 +143,10 @@ impl Grid {
             .count()
     }
 
-    fn scan(&mut self, sand: Pos) -> bool {
+    fn scan(&mut self, start: Pos) -> bool {
         // down, left-down, right-down
         let directions = [Pos::new(0, 1), Pos::new(-1, 1), Pos::new(1, 1)];
-        let mut sand = sand;
+        let mut sand = start;
 
         loop {
             // advance one step in any direction
@@ -148,6 +166,9 @@ impl Grid {
                 }
                 None => {
                     self.cells.insert(sand, Cell::Sand);
+                    if sand == start {
+                        return false;
+                    }
                     return true;
                 }
             }
@@ -210,20 +231,11 @@ impl Grid {
 
 impl Display for Grid {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut min_x = i32::MAX;
-        let mut max_x = i32::MIN;
-
-        // get dimensions
-        for (pos, _) in self.cells.iter() {
-            min_x = i32::min(min_x, pos.x);
-            max_x = i32::max(max_x, pos.x);
-        }
-
-        let width = max_x - min_x;
+        let width = self.max_x - self.min_x;
 
         for y in 0..=self.depth {
             for x in 0..=width {
-                match self.cells.get(&Pos::new(x + min_x, y)) {
+                match self.cells.get(&Pos::new(x + self.min_x, y)) {
                     Some(cell) => write!(f, "{}", cell)?,
                     None => write!(f, "{}", Cell::Air)?,
                 }
@@ -235,6 +247,21 @@ impl Display for Grid {
 }
 
 fn part1(mut grid: Grid) -> usize {
+    grid.fill_sand()
+}
+
+fn part2(mut grid: Grid) -> usize {
+    // update bounds of grid
+    grid.depth += 2;
+    grid.min_x = 500 - grid.depth - 1;
+    grid.max_x = 500 + grid.depth + 1;
+    
+    // add bottom rock row to grid
+    let y = grid.depth;
+    for x in grid.min_x..=grid.max_x {
+        grid.set_cell(Pos::new(x, y), Cell::Rock);
+    }
+
     grid.fill_sand()
 }
 
@@ -251,11 +278,8 @@ fn parse(input: &str) -> Grid {
 
 fn main() {
     let grid = parse(include_str!("input.txt"));
-    let result = part1(grid.clone());
-
-    assert!(result < 633);
-    assert!(417 < result);
-    println!("Part 1: {}", result);
+    println!("Part 1: {}", part1(grid.clone()));
+    println!("Part 2: {}", part2(grid));
 }
 
 #[cfg(test)]
@@ -281,5 +305,10 @@ mod tests {
     #[test]
     fn check_part1() {
         assert_eq!(24, part1(parse(INPUT)));
+    }
+
+    #[test]
+    fn check_part2() {
+        assert_eq!(93, part2(parse(INPUT)));
     }
 }
