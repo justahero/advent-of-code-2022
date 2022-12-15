@@ -1,6 +1,6 @@
 //! Day 15: Beacon Exclusion Zone
 
-use std::{collections::HashSet, ops::RangeInclusive};
+use std::{collections::{HashSet, BTreeSet}, ops::RangeInclusive};
 
 peg::parser! {
     grammar line_parser() for str {
@@ -47,10 +47,8 @@ impl Signal {
     }
 }
 
-fn part1(signals: Vec<Signal>) -> usize {
-    let row = 10;
-
-    // TODO for each signal check if it's signal reaches or crosses the 'y' row
+fn part1(signals: Vec<Signal>, row: i32) -> usize {
+    // For each signal check if it's signal reaches or crosses the 'y' row
     // in case it does, calculate the positions on 'y'
     let mut ranges: Vec<RangeInclusive<i32>> = Vec::new();
     let mut beacons = HashSet::new();
@@ -77,7 +75,7 @@ fn part1(signals: Vec<Signal>) -> usize {
     }
 
     // last count all numbers of row 'y'
-    let mut positions: HashSet<i32> = HashSet::new();
+    let mut positions: BTreeSet<i32> = BTreeSet::new();
     for range in ranges.into_iter() {
         for x in range {
             if beacons.get(&x).is_none() {
@@ -87,6 +85,10 @@ fn part1(signals: Vec<Signal>) -> usize {
     }
 
     positions.len()
+}
+
+fn part2(signals: Vec<Signal>) -> u64 {
+    0
 }
 
 fn parse(input: &str) -> Vec<Signal> {
@@ -100,7 +102,9 @@ fn parse(input: &str) -> Vec<Signal> {
 
 fn main() {
     let signals = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(signals));
+    let result = part1(signals, 2_000_000);
+    assert!(result < 5686057);
+    println!("Part 1: {}", result);
 }
 
 #[cfg(test)]
@@ -131,6 +135,11 @@ mod tests {
 
     #[test]
     fn check_part1() {
-        assert_eq!(26, part1(parse(INPUT)));
+        assert_eq!(26, part1(parse(INPUT), 10));
+    }
+
+    #[test]
+    fn check_part2() {
+        assert_eq!(56_000_011, part2(parse(INPUT)));
     }
 }
