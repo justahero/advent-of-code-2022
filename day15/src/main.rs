@@ -1,6 +1,6 @@
 //! Day 15: Beacon Exclusion Zone
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 
 use itertools::Itertools;
 
@@ -77,7 +77,6 @@ fn part1(signals: Vec<Signal>, line_number: i32) -> usize {
 }
 
 fn part2(signals: Vec<Signal>, limit: i32) -> u64 {
-    let beacons = signals.iter().map(|b| b.beacon).collect::<BTreeSet<Pos>>();
     let signals = signals
         .iter()
         .map(|signal| (signal.sensor, signal.manhattan()))
@@ -85,15 +84,35 @@ fn part2(signals: Vec<Signal>, limit: i32) -> u64 {
 
     for line_number in 0..=limit {
         // find all the ranges for this row, see if they are contiguous / overlap
-        let ranges = signals
+        let mut ranges = signals
             .iter()
             .map(|(sensor, distance)| {
                 let dx = (distance - (sensor.y - line_number).abs()).abs();
-                (sensor.x - dx, sensor.x + dx)
+                let minx = i32::max(0, sensor.x - dx);
+                let maxx = i32::min(limit, sensor.x + dx);
+
+                (minx, maxx)
             })
             .collect::<Vec<_>>();
 
-        dbg!(ranges);
+        // check the ranges are contiguous
+        ranges.sort();
+
+        if let Some(x) =
+            ranges
+                .iter()
+                .tuple_windows()
+                .find_map(|((l_start, l_end), (r_start, r_end))| {
+                    if !(l_end >= r_start && r_end >= l_start) {
+                        Some(l_end + 1)
+                    } else {
+                        None
+                    }
+                })
+        {
+            println!("Pos: {},{}", x, line_number);
+            return (x * 4_000_000 + line_number) as u64;
+        };
     }
 
     panic!("Nothing found")
