@@ -1,6 +1,6 @@
 //! Day 15: Beacon Exclusion Zone
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use itertools::Itertools;
 
@@ -33,31 +33,7 @@ impl Pos {
     }
 }
 
-#[derive(Debug)]
-struct Range {
-    start: i32,
-    end: i32,
-}
-
-impl Range {
-    pub fn new(start: i32, end: i32) -> Self {
-        Self { start, end }
-    }
-
-    /// Checks if this line intersects the other, both need to align either horizontally or vertically
-    /// Returns the new line.
-    pub fn intersects(&self, rhs: &Range) -> Option<Range> {
-        if rhs.end < self.start || rhs.start < self.end {
-            let minx = i32::min(self.start, rhs.start);
-            let maxx = i32::max(self.end, rhs.end);
-            Some(Range::new(minx, maxx))
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Signal {
     pub sensor: Pos,
     pub beacon: Pos,
@@ -76,8 +52,6 @@ impl Signal {
 fn part1(signals: Vec<Signal>, line_number: i32) -> usize {
     // For each signal check if it's signal reaches or crosses the 'y' row
     // in case it does, calculate the positions on 'y'
-    // let mut ranges: Vec<RangeInclusive<i32>> = Vec::new();
-
     let beacons = signals
         .iter()
         .map(|signal| signal.beacon)
@@ -100,46 +74,29 @@ fn part1(signals: Vec<Signal>, line_number: i32) -> usize {
         .filter(|x| !beacons.contains(&Pos::new(*x, line_number)));
 
     x_positions.count()
-
-    /*
-    for signal in signals.iter() {
-        let Pos { x, y } = &signal.sensor;
-
-        // get signal distance to beacon
-        let manhattan = signal.manhattan();
-
-        // get sensor y
-        let sensor_y = i32::abs(row - y);
-
-        // if sensor is in range of row 'y'
-        if manhattan >= sensor_y {
-            let width = manhattan - sensor_y;
-            let range = Range::new(x - width, x + width);
-            ranges.push(range);
-
-            if signal.beacon.y == row {
-                beacons.insert(signal.beacon.y);
-            }
-        }
-    }
-    */
-
-    // last count all numbers of row 'y'
-    /*
-    for range in ranges.into_iter() {
-        for x in range {
-            if beacons.get(&x).is_none() {
-                positions.insert(x);
-            }
-        }
-    }
-    */
 }
 
-fn part2(signals: Vec<Signal>) -> u64 {
-    for signal in signals.iter() {}
+fn part2(signals: Vec<Signal>, limit: i32) -> u64 {
+    let beacons = signals.iter().map(|b| b.beacon).collect::<BTreeSet<Pos>>();
+    let signals = signals
+        .iter()
+        .map(|signal| (signal.sensor, signal.manhattan()))
+        .collect::<Vec<_>>();
 
-    todo!("")
+    for line_number in 0..=limit {
+        // find all the ranges for this row, see if they are contiguous / overlap
+        let ranges = signals
+            .iter()
+            .map(|(sensor, distance)| {
+                let dx = (distance - (sensor.y - line_number).abs()).abs();
+                (sensor.x - dx, sensor.x + dx)
+            })
+            .collect::<Vec<_>>();
+
+        dbg!(ranges);
+    }
+
+    panic!("Nothing found")
 }
 
 fn parse(input: &str) -> Vec<Signal> {
@@ -153,9 +110,8 @@ fn parse(input: &str) -> Vec<Signal> {
 
 fn main() {
     let signals = parse(include_str!("input.txt"));
-    let result = part1(signals, 2_000_000);
-    assert!(result < 5686057);
-    println!("Part 1: {}", result);
+    println!("Part 1: {}", part1(signals.clone(), 2_000_000));
+    println!("Part 2: {}", part2(signals, 4_000_000));
 }
 
 #[cfg(test)]
@@ -191,6 +147,6 @@ mod tests {
 
     #[test]
     fn check_part2() {
-        assert_eq!(56_000_011, part2(parse(INPUT)));
+        assert_eq!(56_000_011, part2(parse(INPUT), 20));
     }
 }
