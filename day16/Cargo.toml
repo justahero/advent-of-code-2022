@@ -9,3 +9,4 @@ publish = false
 anyhow = "1.0"
 itertools = "0.10.5"
 peg = "0.8.1"
+pathfinding = "4.1.1"
