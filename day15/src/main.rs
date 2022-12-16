@@ -1,6 +1,9 @@
 //! Day 15: Beacon Exclusion Zone
 
-use std::{collections::{HashSet, BTreeSet}, ops::RangeInclusive};
+use std::{
+    collections::{BTreeSet, HashSet},
+    ops::RangeInclusive,
+};
 
 peg::parser! {
     grammar line_parser() for str {
@@ -28,6 +31,47 @@ impl Pos {
 
     pub fn manhattan(&self, rhs: &Pos) -> i32 {
         i32::abs(self.x - rhs.x) + i32::abs(self.y - rhs.y)
+    }
+}
+
+#[derive(Debug)]
+struct Line {
+    start: Pos,
+    end: Pos,
+}
+
+impl Line {
+    pub fn new(start: Pos, end: Pos) -> Self {
+        Self { start, end }
+    }
+
+    /// Checks if this line intersects the other, both need to align either horizontally or vertically
+    /// Returns the new line.
+    pub fn intersects(&self, rhs: &Line) -> Option<Line> {
+        // (self.x - rhs.x).abs() <= 1 && (self.y - rhs.y).abs() <= 1
+        if self.start.x == rhs.start.x {
+            if rhs.end.y < self.start.y || rhs.start.y < self.end.y {
+                let miny = i32::min(self.start.y, rhs.start.y);
+                let maxy = i32::max(self.end.y, rhs.end.y);
+                Some(Line::new(
+                    Pos::new(self.start.x, miny),
+                    Pos::new(self.start.x, maxy),
+                ))
+            } else {
+                None
+            }
+        } else {
+            if rhs.end.x < self.start.x || rhs.start.x < self.end.x {
+                let minx = i32::min(self.start.x, rhs.start.x);
+                let maxx = i32::max(self.end.x, rhs.end.x);
+                Some(Line::new(
+                    Pos::new(minx, self.start.y),
+                    Pos::new(maxx, self.start.y),
+                ))
+            } else {
+                None
+            }
+        }
     }
 }
 
@@ -88,7 +132,9 @@ fn part1(signals: Vec<Signal>, row: i32) -> usize {
 }
 
 fn part2(signals: Vec<Signal>) -> u64 {
-    0
+    for signal in signals.iter() {}
+
+    todo!("")
 }
 
 fn parse(input: &str) -> Vec<Signal> {
