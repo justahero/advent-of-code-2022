@@ -6,8 +6,8 @@ use itertools::Itertools;
 
 peg::parser! {
     grammar line_parser() for str {
-        rule number() -> i32
-            = n:$(['-' | '0'..='9']+) { n.parse::<i32>().unwrap() }
+        rule number() -> i64
+            = n:$(['-' | '0'..='9']+) { n.parse::<i64>().unwrap() }
 
         rule pos() -> Pos
             = "x=" x:number() ", y=" y:number() { Pos::new(x, y) }
@@ -19,17 +19,41 @@ peg::parser! {
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Copy, Clone, Hash)]
 struct Pos {
-    x: i32,
-    y: i32,
+    x: i64,
+    y: i64,
 }
 
 impl Pos {
-    pub fn new(x: i32, y: i32) -> Self {
+    pub fn new(x: i64, y: i64) -> Self {
         Self { x, y }
     }
 
-    pub fn manhattan(&self, rhs: &Pos) -> i32 {
-        i32::abs(self.x - rhs.x) + i32::abs(self.y - rhs.y)
+    pub fn manhattan(&self, rhs: &Pos) -> i64 {
+        i64::abs(self.x - rhs.x) + i64::abs(self.y - rhs.y)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct Range {
+    pub start: i64,
+    pub end: i64,
+}
+
+impl Range {
+    pub fn new(start: i64, end: i64) -> Self {
+        Self { start, end }
+    }
+
+    #[inline]
+    pub fn overlap(&self, rhs: &Range) -> bool {
+        self.end >= rhs.start && rhs.end >= self.start
+    }
+
+    #[inline]
+    pub fn merge(&self, rhs: &Range) -> Range {
+        let start = i64::min(self.start, rhs.start);
+        let end = i64::max(self.end, rhs.end);
+        Range::new(start, end)
     }
 }
 
@@ -44,12 +68,12 @@ impl Signal {
         Self { sensor, beacon }
     }
 
-    pub fn manhattan(&self) -> i32 {
+    pub fn manhattan(&self) -> i64 {
         self.sensor.manhattan(&self.beacon)
     }
 }
 
-fn part1(signals: Vec<Signal>, line_number: i32) -> usize {
+fn part1(signals: Vec<Signal>, line_number: i64) -> usize {
     // For each signal check if it's signal reaches or crosses the 'y' row
     // in case it does, calculate the positions on 'y'
     let beacons = signals
@@ -76,46 +100,53 @@ fn part1(signals: Vec<Signal>, line_number: i32) -> usize {
     x_positions.count()
 }
 
-fn part2(signals: Vec<Signal>, limit: i32) -> u64 {
+fn find_missing_beacon(signals: Vec<Signal>, limit: i64) -> Option<Pos> {
     let signals = signals
         .iter()
         .map(|signal| (signal.sensor, signal.manhattan()))
         .collect::<Vec<_>>();
 
+    // find all the ranges for this row, see if they are contiguous / overlap
     for line_number in 0..=limit {
-        // find all the ranges for this row, see if they are contiguous / overlap
         let mut ranges = signals
             .iter()
-            .map(|(sensor, distance)| {
-                let dx = (distance - (sensor.y - line_number).abs()).abs();
-                let minx = i32::max(0, sensor.x - dx);
-                let maxx = i32::min(limit, sensor.x + dx);
+            .filter(|(sensor, distance)| (sensor.y - line_number).abs() <= *distance)
+            .map(|(sensor, manhattan)| {
+                let dx = (manhattan - (sensor.y - line_number).abs()).abs();
 
-                (minx, maxx)
+                let minx = i64::max(0, sensor.x - dx);
+                let maxx = i64::min(limit, sensor.x + dx);
+
+                Range::new(minx, maxx)
             })
             .collect::<Vec<_>>();
 
-        // check the ranges are contiguous
         ranges.sort();
 
-        if let Some(x) =
-            ranges
-                .iter()
-                .tuple_windows()
-                .find_map(|((l_start, l_end), (r_start, r_end))| {
-                    if !(l_end >= r_start && r_end >= l_start) {
-                        Some(l_end + 1)
-                    } else {
-                        None
-                    }
-                })
-        {
-            println!("Pos: {},{}", x, line_number);
-            return (x * 4_000_000 + line_number) as u64;
-        };
+        // check the ranges are contiguous
+        let (_result, x) = ranges
+            .iter()
+            .fold((Range::new(0, 0), None), |mut acc, range| {
+                if acc.0.overlap(range) {
+                    acc.0 = acc.0.merge(range);
+                } else {
+                    acc.1 = Some(acc.0.end + 1);
+                }
+                acc
+            });
+
+        if let Some(x) = x {
+            return Some(Pos::new(x, line_number));
+        }
     }
 
-    panic!("Nothing found")
+    None
+}
+
+/// Find the single position that is not covered by signals, it's the missing beacon.
+fn part2(signals: Vec<Signal>, limit: i64) -> usize {
+    let pos = find_missing_beacon(signals, limit).expect("Failed to find missing beacon");
+    (pos.x * 4_000_000 + pos.y) as usize
 }
 
 fn parse(input: &str) -> Vec<Signal> {
@@ -130,7 +161,9 @@ fn parse(input: &str) -> Vec<Signal> {
 fn main() {
     let signals = parse(include_str!("input.txt"));
     println!("Part 1: {}", part1(signals.clone(), 2_000_000));
-    println!("Part 2: {}", part2(signals, 4_000_000));
+    let result = part2(signals, 4_000_000);
+    assert!(result > 4079108237741);
+    println!("Part 2: {}", result);
 }
 
 #[cfg(test)]
