@@ -1,9 +1,8 @@
 //! Day 15: Beacon Exclusion Zone
 
-use std::{
-    collections::{BTreeSet, HashSet},
-    ops::RangeInclusive,
-};
+use std::collections::HashSet;
+
+use itertools::Itertools;
 
 peg::parser! {
     grammar line_parser() for str {
@@ -18,7 +17,7 @@ peg::parser! {
     }
 }
 
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Copy, Clone, Hash)]
 struct Pos {
     x: i32,
     y: i32,
@@ -35,42 +34,25 @@ impl Pos {
 }
 
 #[derive(Debug)]
-struct Line {
-    start: Pos,
-    end: Pos,
+struct Range {
+    start: i32,
+    end: i32,
 }
 
-impl Line {
-    pub fn new(start: Pos, end: Pos) -> Self {
+impl Range {
+    pub fn new(start: i32, end: i32) -> Self {
         Self { start, end }
     }
 
     /// Checks if this line intersects the other, both need to align either horizontally or vertically
     /// Returns the new line.
-    pub fn intersects(&self, rhs: &Line) -> Option<Line> {
-        // (self.x - rhs.x).abs() <= 1 && (self.y - rhs.y).abs() <= 1
-        if self.start.x == rhs.start.x {
-            if rhs.end.y < self.start.y || rhs.start.y < self.end.y {
-                let miny = i32::min(self.start.y, rhs.start.y);
-                let maxy = i32::max(self.end.y, rhs.end.y);
-                Some(Line::new(
-                    Pos::new(self.start.x, miny),
-                    Pos::new(self.start.x, maxy),
-                ))
-            } else {
-                None
-            }
+    pub fn intersects(&self, rhs: &Range) -> Option<Range> {
+        if rhs.end < self.start || rhs.start < self.end {
+            let minx = i32::min(self.start, rhs.start);
+            let maxx = i32::max(self.end, rhs.end);
+            Some(Range::new(minx, maxx))
         } else {
-            if rhs.end.x < self.start.x || rhs.start.x < self.end.x {
-                let minx = i32::min(self.start.x, rhs.start.x);
-                let maxx = i32::max(self.end.x, rhs.end.x);
-                Some(Line::new(
-                    Pos::new(minx, self.start.y),
-                    Pos::new(maxx, self.start.y),
-                ))
-            } else {
-                None
-            }
+            None
         }
     }
 }
@@ -91,12 +73,35 @@ impl Signal {
     }
 }
 
-fn part1(signals: Vec<Signal>, row: i32) -> usize {
+fn part1(signals: Vec<Signal>, line_number: i32) -> usize {
     // For each signal check if it's signal reaches or crosses the 'y' row
     // in case it does, calculate the positions on 'y'
-    let mut ranges: Vec<RangeInclusive<i32>> = Vec::new();
-    let mut beacons = HashSet::new();
+    // let mut ranges: Vec<RangeInclusive<i32>> = Vec::new();
 
+    let beacons = signals
+        .iter()
+        .map(|signal| signal.beacon)
+        .collect::<HashSet<Pos>>();
+
+    let x_positions = signals
+        .iter()
+        .map(|sensor| (sensor.manhattan(), sensor.sensor))
+        .filter(|(distance, sensor)| {
+            let sensor_range = (sensor.y - distance)..(sensor.y + distance);
+            sensor_range.contains(&line_number)
+        })
+        .flat_map(|(max_distance, sensor)| {
+            let distance = (sensor.y - line_number).abs();
+            let max_distance = max_distance - distance;
+
+            (sensor.x - max_distance)..=(sensor.x + max_distance)
+        })
+        .unique()
+        .filter(|x| !beacons.contains(&Pos::new(*x, line_number)));
+
+    x_positions.count()
+
+    /*
     for signal in signals.iter() {
         let Pos { x, y } = &signal.sensor;
 
@@ -109,7 +114,7 @@ fn part1(signals: Vec<Signal>, row: i32) -> usize {
         // if sensor is in range of row 'y'
         if manhattan >= sensor_y {
             let width = manhattan - sensor_y;
-            let range = (x - width)..=(x + width);
+            let range = Range::new(x - width, x + width);
             ranges.push(range);
 
             if signal.beacon.y == row {
@@ -117,9 +122,10 @@ fn part1(signals: Vec<Signal>, row: i32) -> usize {
             }
         }
     }
+    */
 
     // last count all numbers of row 'y'
-    let mut positions: BTreeSet<i32> = BTreeSet::new();
+    /*
     for range in ranges.into_iter() {
         for x in range {
             if beacons.get(&x).is_none() {
@@ -127,8 +133,7 @@ fn part1(signals: Vec<Signal>, row: i32) -> usize {
             }
         }
     }
-
-    positions.len()
+    */
 }
 
 fn part2(signals: Vec<Signal>) -> u64 {
