@@ -1,6 +1,7 @@
-use std::collections::BTreeMap;
+use std::{cmp::max, collections::BTreeMap};
 
 use array2d::Array2D;
+use itertools::Itertools;
 
 peg::parser! {
     grammar line_parser() for str {
@@ -113,10 +114,61 @@ impl Network {
             tunnels: interesting,
         }
     }
+
+    fn distance(&self, current: usize, next: usize) -> i32 {
+        self.tunnels[(current, next)]
+    }
 }
 
-fn total_flow(num_rounds: i32, start: &str, pipes: &[&&Pipe]) -> usize {
-    0
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct Worker {
+    time_left: i32,
+    pos: usize,
+}
+
+impl Worker {
+    pub fn new(time_left: i32, pos: usize) -> Self {
+        Self { time_left, pos }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct State {
+    open_valves: Vec<usize>,
+    worker: Worker,
+}
+
+/// Find the best path to open valves
+fn solve(current: State, network: &Network, cache: &mut BTreeMap<State, i32>) -> i32 {
+    let mut best = 0;
+
+    let worker = &current.worker;
+
+    for next in current.open_valves.iter() {
+        let remaining = current
+            .open_valves
+            .iter()
+            .filter(|x| *x != next)
+            .map(|x| *x)
+            .collect_vec();
+
+        // Get the time left with reaching the target pos.
+        let time_left = worker.time_left - network.distance(worker.pos, *next);
+        if time_left < 0 {
+            continue;
+        }
+
+        let worker = Worker::new(time_left, *next);
+        let next_state = State {
+            open_valves: remaining,
+            worker,
+        };
+
+        let total = solve(next_state, network, cache) + (time_left * network.flow_rates[next]);
+        best = max(best, total);
+    }
+
+    best
 }
 
 /// Determine the best path to maximume the flow of all open valves.
@@ -124,14 +176,17 @@ fn total_flow(num_rounds: i32, start: &str, pipes: &[&&Pipe]) -> usize {
 /// Travelling salesman problem!
 /// Issue is a greedy algorithm ignores the best path, only considers the next best position
 /// but ignoring optimal path finding of all nodes.
-fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> Option<usize> {
+fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> i32 {
     let network = Network::create(pipes);
-
-    Some(0)
+    let state = State {
+        open_valves: Vec::from_iter(0..network.flow_rates.len()),
+        worker: Worker::new(num_rounds, network.start),
+    };
+    solve(state, &network, &mut BTreeMap::new())
 }
 
-fn part1(pipes: Vec<Pipe>) -> usize {
-    open_valves(pipes, 30).expect("Failed to find max value")
+fn part1(pipes: Vec<Pipe>) -> i32 {
+    open_valves(pipes, 30)
 }
 
 fn parse(input: &str) -> Vec<Pipe> {
