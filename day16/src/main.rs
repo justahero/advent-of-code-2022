@@ -49,24 +49,21 @@ fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> usize {
         .collect::<BTreeMap<_, _>>();
 
     let mut current_valve = "AA".to_string();
-    let mut current_steps = 0;
     let mut total_flow: i32 = 0;
 
     // play all rounds
-    let mut round = 0;
-    while round < num_rounds {
+    for round in 0..num_rounds {
         println!("ROUND: {}", round);
 
         // calculcate flow since last step
-        total_flow += pipes_by_label
+        let new_flow = pipes_by_label
             .values()
             .filter(|pipe| pipe.open)
-            .inspect(|pipe| println!("PIPE: {:?}", pipe))
             .map(|pipe| pipe.flow_rate)
-            .inspect(|flow| println!("FLOW: {}", flow))
             .sum::<i32>();
 
-        // println!("TOTAL: {}", total_flow);
+        println!("New Flow: {}", new_flow);
+        total_flow += new_flow;
 
         // evaluate current network of open valves
         // TODO refactor to use single path to most profitable location, ignore all others
@@ -83,15 +80,6 @@ fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> usize {
         });
 
         all_paths.insert(current_valve.clone(), (current_valve.clone(), 0));
-
-        // add the current valve as well if it's open
-        //        if let Some(current_pipe) = pipes_by_label.get(current_valve.as_str()) {
-        //            if !current_pipe.open {
-        //                all_paths.insert(current_valve.clone(), (current_valve.clone(), 0));
-        //            }
-        //        }
-
-        // println!("ALL_PATHS: {:?}", all_paths);
 
         // find the best possible candidate that provides the highest flow
         // TODO check if (String, i32, i32) is necessary
@@ -139,8 +127,6 @@ fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> usize {
                 }
             }
         }
-
-        round += 1;
     }
 
     total_flow as usize
