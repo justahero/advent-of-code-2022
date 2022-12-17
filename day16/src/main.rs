@@ -41,6 +41,10 @@ struct Pipe {
 }
 
 /// Determine the best path to maximume the flow of all open valves.
+///
+/// Travelling salesman problem!
+/// Issue is a greedy algorithm ignores the best path, only considers the next best position
+/// but ignoring optimal path finding of all nodes.
 fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> usize {
     // Look up table
     let mut pipes_by_label: BTreeMap<String, Pipe> = pipes
@@ -53,80 +57,8 @@ fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> usize {
 
     // play all rounds
     for round in 0..num_rounds {
-        println!("ROUND: {}", round);
-
-        // calculcate flow since last step
-        let new_flow = pipes_by_label
-            .values()
-            .filter(|pipe| pipe.open)
-            .map(|pipe| pipe.flow_rate)
-            .sum::<i32>();
-
-        println!("New Flow: {}", new_flow);
-        total_flow += new_flow;
-
-        // evaluate current network of open valves
-        // TODO refactor to use single path to most profitable location, ignore all others
-        let mut all_paths = dijkstra_all(&current_valve.clone(), |valve| {
-            let mut valves: Vec<(String, i32)> = Vec::new();
-            let current_pipe = pipes_by_label.get(valve).expect("Failed to get pipe");
-
-            for tunnel in &current_pipe.tunnels {
-                let pipe = pipes_by_label.get(tunnel).expect("Failed to get successor");
-                valves.push((pipe.valve.to_string(), 1));
-            }
-
-            valves
-        });
-
-        all_paths.insert(current_valve.clone(), (current_valve.clone(), 0));
-
-        // find the best possible candidate that provides the highest flow
-        // TODO check if (String, i32, i32) is necessary
-        let next_valve = all_paths
-            .iter()
-            .filter_map(|(key, (_valve, steps))| {
-                let pipe = pipes_by_label.get(key).unwrap();
-                if !pipe.open {
-                    let flow_rate = (num_rounds - round - steps).max(0) * pipe.flow_rate;
-                    Some((key, flow_rate, steps))
-                } else {
-                    None
-                }
-            })
-            .max_by(|left, right| left.1.cmp(&right.1));
-
-        if let Some((next_valve, _total_flow, _steps)) = next_valve {
-            let (path, steps) = dijkstra(
-                &current_valve.clone(),
-                |valve| {
-                    let mut valves: Vec<(String, i32)> = Vec::new();
-                    let current_pipe = pipes_by_label.get(valve).expect("Failed to get pipe");
-
-                    for tunnel in &current_pipe.tunnels {
-                        let pipe = pipes_by_label.get(tunnel).expect("Failed to get successor");
-                        valves.push((pipe.valve.to_string(), 1));
-                    }
-
-                    valves
-                },
-                |valve| valve == next_valve,
-            )
-            .unwrap();
-
-            // Either move to next tunnel or open valve
-            println!("  What's happening: {:?}", path);
-
-            if steps == 0 {
-                println!("  Open Valve: {}", next_valve);
-                pipes_by_label.get_mut(next_valve).unwrap().open = true;
-            } else {
-                if let Some(path) = path.iter().nth(1) {
-                    println!("  Move to tunnel: {}", path);
-                    current_valve = path.clone();
-                }
-            }
-        }
+        println!("== MINUTE {} ==", round + 1);
+        println!();
     }
 
     total_flow as usize
