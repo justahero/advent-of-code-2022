@@ -250,6 +250,6 @@ mod tests {
 
     #[test]
     fn check_part2() {
-        // assert_eq!(1707, part2(parse(INPUT)));
+        assert_eq!(1_514_285_714_288, part2(parse(INPUT)));
     }
 }
