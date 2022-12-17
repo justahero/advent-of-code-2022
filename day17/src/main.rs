@@ -155,7 +155,7 @@ fn merge_stack(stack: &mut Stack, shape: &Shape) {
     }
 }
 
-fn part1(jets: Vec<Dir>) -> usize {
+fn fill_rocks(mut stack: Stack, num_rocks: usize, jets: &[Dir]) -> usize {
     const DOWN: Dir = Dir::Down;
 
     let shapes: Vec<Shape> = vec![
@@ -193,9 +193,6 @@ fn part1(jets: Vec<Dir>) -> usize {
         ]),
     ];
 
-    let num_rocks = 2022;
-    let mut stack = Stack::new();
-
     let mut jet_iter = itertools::Itertools::intersperse(jets.iter().cycle(), &DOWN);
 
     for mut rock in shapes.iter().cycle().take(num_rocks).cloned() {
@@ -217,8 +214,16 @@ fn part1(jets: Vec<Dir>) -> usize {
     stack.height() as usize
 }
 
-fn part2(jets: Vec<Dir>) -> u64 {
-    0
+fn part1(jets: Vec<Dir>) -> usize {
+    let num_rocks = 2022;
+    let stack = Stack::new();
+    fill_rocks(stack, num_rocks, &jets)
+}
+
+fn part2(jets: Vec<Dir>) -> usize {
+    let num_rocks = 1_000_000_000_000;
+    let stack = Stack::new();
+    fill_rocks(stack, num_rocks, &jets)
 }
 
 fn parse(input: &str) -> Vec<Dir> {
