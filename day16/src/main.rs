@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
-use pathfinding::prelude::{dijkstra, dijkstra_all};
+use array2d::Array2D;
+use itertools::Itertools;
 
 peg::parser! {
     grammar line_parser() for str {
@@ -40,32 +41,72 @@ struct Pipe {
     open: bool,
 }
 
+/// A network of connected tunnels & valves.
+#[derive(Debug)]
+struct Network {
+    start: usize,
+    end: usize,
+    flow_rates: BTreeMap<usize, i32>,
+    tunnels: Array2D<i32>,
+}
+
+fn total_flow(num_rounds: i32, start: &str, pipes: &[&&Pipe]) -> usize {
+    0
+}
+
 /// Determine the best path to maximume the flow of all open valves.
 ///
 /// Travelling salesman problem!
 /// Issue is a greedy algorithm ignores the best path, only considers the next best position
 /// but ignoring optimal path finding of all nodes.
-fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> usize {
-    // Look up table
-    let mut pipes_by_label: BTreeMap<String, Pipe> = pipes
-        .into_iter()
-        .map(|pipe| (pipe.valve.to_string(), pipe))
+fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> Option<usize> {
+    let current_valve = "AA".to_string();
+
+    // Get the list of possible permutations of pipes that have a flow rate
+    /*
+    let with_flow_rates = pipes
+        .iter()
+        .filter(|&pipe| pipe.flow_rate > 0)
+        .collect::<Vec<_>>();
+
+    let length = with_flow_rates.len();
+    println!("LENGTH: {}", length);
+    */
+
+    let indexes: BTreeMap<String, usize> = pipes
+        .iter()
+        .enumerate()
+        .map(|(index, pipe)| (pipe.valve.to_string(), index))
         .collect::<BTreeMap<_, _>>();
 
-    let mut current_valve = "AA".to_string();
-    let mut total_flow: i32 = 0;
+    let mut distribution = Array2D::filled_with(i32::MAX, pipes.len(), pipes.len());
 
-    // play all rounds
-    for round in 0..num_rounds {
-        println!("== MINUTE {} ==", round + 1);
-        println!();
+    // Fill in matrix all existing pipes
+    for pipe in pipes.iter() {
+        distribution[(indexes[&pipe.valve], indexes[&pipe.valve])] = 0;
+        for tunnel in &pipe.tunnels {
+            distribution[(indexes[&pipe.valve], indexes[tunnel])] = 1;
+        }
     }
 
-    total_flow as usize
+    // Apply Floyd-Marshall to calculate shortest path for each pair of nodes
+    // See https://www.programiz.com/dsa/floyd-warshall-algorithm
+    for k in 0..indexes.len() {
+        for i in 0..indexes.len() {
+            for j in 0..indexes.len() {
+                distribution[(i, j)] = std::cmp::min(
+                    distribution[(i, j)],
+                    distribution[(i, k)] + distribution[(k, j)],
+                );
+            }
+        }
+    }
+
+    Some(0)
 }
 
 fn part1(pipes: Vec<Pipe>) -> usize {
-    open_valves(pipes, 30)
+    open_valves(pipes, 30).expect("Failed to find max value")
 }
 
 fn parse(input: &str) -> Vec<Pipe> {
