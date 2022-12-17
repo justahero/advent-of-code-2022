@@ -4,12 +4,12 @@ use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Pos {
-    x: i32,
-    y: i32,
+    x: i64,
+    y: i64,
 }
 
 impl Pos {
-    pub const fn new(x: i32, y: i32) -> Self {
+    pub const fn new(x: i64, y: i64) -> Self {
         Pos { x, y }
     }
 }
@@ -71,7 +71,7 @@ impl Shape {
         self.positions.iter_mut().for_each(|pos| *pos += dir);
     }
 
-    pub fn pos(&self, x: i32, y: i32) -> Option<&Pos> {
+    pub fn pos(&self, x: i64, y: i64) -> Option<&Pos> {
         self.positions.iter().find(|p| p.x == x && p.y == y)
     }
 }
@@ -86,12 +86,12 @@ impl Stack {
         Self { lines: Vec::new() }
     }
 
-    pub fn height(&self) -> i32 {
-        self.lines.len() as i32
+    pub fn height(&self) -> i64 {
+        self.lines.len() as i64
     }
 
     pub fn print(&self, shape: &Shape) {
-        let length = self.height() as i32 + 6;
+        let length = self.height() as i64 + 6;
 
         // draw top to bottom
         for y in (0..length).rev() {
@@ -121,7 +121,7 @@ impl Stack {
     }
 
     #[inline]
-    pub fn is_free(&self, x: i32, y: i32) -> bool {
+    pub fn is_free(&self, x: i64, y: i64) -> bool {
         if 0 <= x && x < 7 && y >= 0 {
             if y < self.height() {
                 return (self.lines[y as usize] & (1 << x)) == 0;
@@ -217,14 +217,18 @@ fn part1(jets: Vec<Dir>) -> usize {
     stack.height() as usize
 }
 
+fn part2(jets: Vec<Dir>) -> u64 {
+    0
+}
+
 fn parse(input: &str) -> Vec<Dir> {
     input.chars().map(|c| c.into()).collect()
 }
 
 fn main() {
     let jets = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(jets));
-    //    println!("Part 2: {}", part2(pipes));
+    println!("Part 1: {}", part1(jets.clone()));
+    println!("Part 2: {}", part2(jets));
 }
 
 #[cfg(test)]
