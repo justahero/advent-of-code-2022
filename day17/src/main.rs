@@ -1,5 +1,7 @@
 //! Day 17: Pyroclastic Flow
 
+use itertools::Itertools;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Pos {
     x: i32,
@@ -89,7 +91,7 @@ impl Stack {
     }
 
     pub fn print(&self, shape: &Shape) {
-        let length = self.height() as i32 + 5;
+        let length = self.height() as i32 + 6;
 
         // draw top to bottom
         for y in (0..length).rev() {
@@ -111,15 +113,48 @@ impl Stack {
         }
         println!("-------");
     }
+
+    #[inline]
+    pub fn set(&mut self, pos: &Pos) {
+        // println!("Stack::set {}x{}, height: {}, row: {:08b}", pos.x, pos.y, self.height(), self.lines[pos.y as usize]);
+        assert!(self.is_free(pos.x, pos.y)); // remove
+        self.lines[pos.y as usize] |= 1 << pos.x;
+    }
+
+    #[inline]
+    pub fn is_free(&self, x: i32, y: i32) -> bool {
+        // println!("Stack::is_free {}x{}", x, y);
+        if 0 <= x && x < 7 && y >= 0 {
+            if y < self.height() {
+                return (self.lines[y as usize] & (1 << x)) == 0;
+            } else {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 /// Returns true if rock was moved
-fn move_rock(_stack: &Stack, _dir: &Dir, _shape: &mut Shape) -> bool {
-    false
+fn can_move_rock(stack: &Stack, dir: &Dir, shape: &mut Shape) -> bool {
+    // Calculate the next position of the shape.
+    let next_positions = shape
+        .positions
+        .iter()
+        .map(|pos| *pos + dir.dir())
+        .collect_vec();
+
+    // for each block of the shape check it's actually possible to move there
+    next_positions.iter().all(|pos| stack.is_free(pos.x, pos.y))
 }
 
-fn merge_stack(_stack: &mut Stack, _shape: &Shape) {
-    // todo!()
+fn merge_stack(stack: &mut Stack, shape: &Shape) {
+    for pos in shape.positions.iter() {
+        while pos.y >= stack.height() {
+            stack.lines.push(0b0000000);
+        }
+        stack.set(pos);
+    }
 }
 
 fn part1(jets: Vec<Dir>) -> usize {
@@ -135,8 +170,8 @@ fn part1(jets: Vec<Dir>) -> usize {
         Shape::new(vec![
             Pos::new(3, 0),
             Pos::new(2, 1),
-            Pos::new(2, 1),
             Pos::new(3, 1),
+            Pos::new(4, 1),
             Pos::new(3, 2),
         ]),
         Shape::new(vec![
@@ -160,23 +195,28 @@ fn part1(jets: Vec<Dir>) -> usize {
         ]),
     ];
 
-    let num_rocks = 1;
+    let num_rocks = 2;
     let mut stack = Stack::new();
 
-    for mut rock in shapes.iter().cycle().take(num_rocks).cloned() {
+    let mut jet_iter = itertools::Itertools::intersperse(jets.iter(), &DOWN).cycle();
+
+    for (index, mut rock) in shapes.iter().cycle().take(num_rocks).cloned().enumerate() {
+        println!("Rock: {}", index);
         rock.move_all(Pos::new(0, stack.height() + 3));
 
         // first apply jet then move down until the shape cannot move anymore.
-        for dir in itertools::Itertools::intersperse(jets.iter(), &DOWN).cycle() {
-            if !move_rock(&mut stack, dir, &mut rock) {
+        for dir in jet_iter.by_ref() {
+            println!("Dir: {:?}", dir);
+            stack.print(&rock);
+            if !can_move_rock(&mut stack, dir, &mut rock) {
                 if *dir == Dir::Down {
                     merge_stack(&mut stack, &rock);
                     break;
                 }
+            } else {
+                rock.move_all(dir.dir());
             }
         }
-
-        stack.print(&rock);
     }
 
     0
@@ -197,6 +237,12 @@ mod tests {
     use super::*;
 
     const INPUT: &str = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>";
+
+    #[test]
+    fn check_stack_is_free_bounds() {
+        let stack = Stack::new();
+        assert!(stack.is_free(0, 0));
+    }
 
     #[test]
     fn check_part1() {
