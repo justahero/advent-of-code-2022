@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use pathfinding::prelude::dijkstra_all;
+use pathfinding::prelude::{dijkstra, dijkstra_all};
 
 peg::parser! {
     grammar line_parser() for str {
@@ -66,46 +66,77 @@ fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> usize {
             .inspect(|flow| println!("FLOW: {}", flow))
             .sum::<i32>();
 
-        println!("TOTAL: {}", total_flow);
+        // println!("TOTAL: {}", total_flow);
 
-        current_steps -= 1;
+        // evaluate current network of open valves
+        // TODO refactor to use single path to most profitable location, ignore all others
+        let mut all_paths = dijkstra_all(&current_valve.clone(), |valve| {
+            let mut valves: Vec<(String, i32)> = Vec::new();
+            let current_pipe = pipes_by_label.get(valve).expect("Failed to get pipe");
 
-        // TODO update the pipe!!!
-        pipes_by_label.get_mut(&current_valve).unwrap().open = true;
+            for tunnel in &current_pipe.tunnels {
+                let pipe = pipes_by_label.get(tunnel).expect("Failed to get successor");
+                valves.push((pipe.valve.to_string(), 1));
+            }
 
-        // currently on the way to new valve
-        if current_steps == 0 {
-            // evaluate current network of open valves
-            let all_paths = dijkstra_all(&current_valve.clone(), |valve| {
-                let mut valves: Vec<(String, i32)> = Vec::new();
-                let current_pipe = pipes_by_label.get(valve).expect("Failed to get pipe");
+            valves
+        });
 
-                for tunnel in &current_pipe.tunnels {
-                    let pipe = pipes_by_label.get(tunnel).expect("Failed to get successor");
-                    valves.push((pipe.valve.to_string(), 1));
+        all_paths.insert(current_valve.clone(), (current_valve.clone(), 0));
+
+        // add the current valve as well if it's open
+        //        if let Some(current_pipe) = pipes_by_label.get(current_valve.as_str()) {
+        //            if !current_pipe.open {
+        //                all_paths.insert(current_valve.clone(), (current_valve.clone(), 0));
+        //            }
+        //        }
+
+        // println!("ALL_PATHS: {:?}", all_paths);
+
+        // find the best possible candidate that provides the highest flow
+        // TODO check if (String, i32, i32) is necessary
+        let next_valve = all_paths
+            .iter()
+            .filter_map(|(key, (_valve, steps))| {
+                let pipe = pipes_by_label.get(key).unwrap();
+                if !pipe.open {
+                    let flow_rate = (num_rounds - round - steps).max(0) * pipe.flow_rate;
+                    Some((key, flow_rate, steps))
+                } else {
+                    None
                 }
+            })
+            .max_by(|left, right| left.1.cmp(&right.1));
 
-                valves
-            });
+        if let Some((next_valve, _total_flow, _steps)) = next_valve {
+            let (path, steps) = dijkstra(
+                &current_valve.clone(),
+                |valve| {
+                    let mut valves: Vec<(String, i32)> = Vec::new();
+                    let current_pipe = pipes_by_label.get(valve).expect("Failed to get pipe");
 
-            // find the best possible candidate that provides the highest flow
-            let next_valve = all_paths
-                .iter()
-                .filter_map(|(key, (_valve, steps))| {
-                    let pipe = pipes_by_label.get(key).unwrap();
-                    if !pipe.open {
-                        let flow_rate = (num_rounds - round - steps).max(0) * pipe.flow_rate;
-                        Some((key, flow_rate, steps))
-                    } else {
-                        None
+                    for tunnel in &current_pipe.tunnels {
+                        let pipe = pipes_by_label.get(tunnel).expect("Failed to get successor");
+                        valves.push((pipe.valve.to_string(), 1));
                     }
-                })
-                .max_by(|left, right| left.1.cmp(&right.1));
 
-            // when there is still one valve left, advance
-            if let Some((next_valve, _, steps)) = next_valve {
-                current_valve = next_valve.clone();
-                current_steps = *steps;
+                    valves
+                },
+                |valve| valve == next_valve,
+            )
+            .unwrap();
+
+            // Either move to next tunnel or open valve
+            println!("  What's happening: {:?}", path);
+
+            if steps == 0 {
+                println!("  Open Valve: {}", next_valve);
+                pipes_by_label.get_mut(next_valve).unwrap().open = true;
+            } else {
+                if let Some(path) = path.iter().nth(1) {
+                    println!("  Move to tunnel: {}", path);
+                    current_valve = path.clone();
+                }
             }
         }
 
