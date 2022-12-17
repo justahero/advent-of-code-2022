@@ -111,19 +111,17 @@ impl Stack {
             }
             println!();
         }
-        println!("-------");
+        println!("-------\n");
     }
 
     #[inline]
     pub fn set(&mut self, pos: &Pos) {
-        // println!("Stack::set {}x{}, height: {}, row: {:08b}", pos.x, pos.y, self.height(), self.lines[pos.y as usize]);
         assert!(self.is_free(pos.x, pos.y)); // remove
         self.lines[pos.y as usize] |= 1 << pos.x;
     }
 
     #[inline]
     pub fn is_free(&self, x: i32, y: i32) -> bool {
-        // println!("Stack::is_free {}x{}", x, y);
         if 0 <= x && x < 7 && y >= 0 {
             if y < self.height() {
                 return (self.lines[y as usize] & (1 << x)) == 0;
@@ -175,11 +173,11 @@ fn part1(jets: Vec<Dir>) -> usize {
             Pos::new(3, 2),
         ]),
         Shape::new(vec![
-            Pos::new(4, 0),
-            Pos::new(4, 1),
-            Pos::new(2, 2),
-            Pos::new(3, 2),
             Pos::new(4, 2),
+            Pos::new(4, 1),
+            Pos::new(2, 0),
+            Pos::new(3, 0),
+            Pos::new(4, 0),
         ]),
         Shape::new(vec![
             Pos::new(2, 0),
@@ -195,19 +193,16 @@ fn part1(jets: Vec<Dir>) -> usize {
         ]),
     ];
 
-    let num_rocks = 2;
+    let num_rocks = 2022;
     let mut stack = Stack::new();
 
-    let mut jet_iter = itertools::Itertools::intersperse(jets.iter(), &DOWN).cycle();
+    let mut jet_iter = itertools::Itertools::intersperse(jets.iter().cycle(), &DOWN);
 
-    for (index, mut rock) in shapes.iter().cycle().take(num_rocks).cloned().enumerate() {
-        println!("Rock: {}", index);
+    for mut rock in shapes.iter().cycle().take(num_rocks).cloned() {
         rock.move_all(Pos::new(0, stack.height() + 3));
 
-        // first apply jet then move down until the shape cannot move anymore.
+        // first apply jet then move down until the shape cannot move anymore, then repeat for next rock
         for dir in jet_iter.by_ref() {
-            println!("Dir: {:?}", dir);
-            stack.print(&rock);
             if !can_move_rock(&mut stack, dir, &mut rock) {
                 if *dir == Dir::Down {
                     merge_stack(&mut stack, &rock);
@@ -219,7 +214,7 @@ fn part1(jets: Vec<Dir>) -> usize {
         }
     }
 
-    0
+    stack.height() as usize
 }
 
 fn parse(input: &str) -> Vec<Dir> {
