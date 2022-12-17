@@ -1,9 +1,11 @@
 //! Day 17: Pyroclastic Flow
 
+use std::collections::HashSet;
+
 use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy)]
-struct Pos {
+pub struct Pos {
     x: i32,
     y: i32,
 }
@@ -59,63 +61,55 @@ impl From<char> for Dir {
 
 #[derive(Debug, Clone)]
 pub struct Shape {
-    rows: Vec<u8>,
-    height: i32,
-    width: i32,
+    positions: Vec<Pos>,
 }
 
 impl Shape {
-    pub fn new(bits: [u8; 4]) -> Self {
-        let width = bits.iter().map(|row| row.count_ones()).max().unwrap() as i32;
-        let height = bits.iter().filter(|&row| row.count_ones() > 0).count() as i32;
-
-        Self {
-            rows: bits.into_iter().rev().collect_vec(),
-            height,
-            width,
-        }
+    pub fn new(positions: Vec<Pos>) -> Self {
+        Self { positions }
     }
 
-    pub fn row(&self, index: i32) -> u8 {
-        assert!(0 <= index && index < self.rows.len() as i32);
-        self.rows[index as usize]
+    pub fn row(&self, y: i32) -> impl Iterator<Item = &Pos> + '_ {
+        self.positions.iter().filter(move |&pos| pos.y == y)
     }
 
-    pub fn intersects(&self, index: i32, rhs: u8) -> bool {
-        assert!(0 <= index && index < self.height);
-        (self.rows[index as usize] & rhs) > 0
+    pub fn move_all(&mut self, dir: Pos) {
+        self.positions.iter_mut().for_each(|pos| *pos += dir);
+    }
+
+    pub fn pos(&self, x: i32, y: i32) -> Option<&Pos> {
+        self.positions.iter().find(|p| p.x == x && p.y == y)
     }
 }
 
 /// Returns true if rock was moved
-fn move_rock(_stack: &[u8], _y: i32, _dir: &Dir, _shape: &mut Shape) -> bool {
+fn move_rock(_stack: &[u8], _dir: &Dir, _shape: &mut Shape) -> bool {
     false
 }
 
-fn merge_stack(_stack: &[u8], _current_y: i32, _shape: &Shape) {
+fn merge_stack(_stack: &mut [u8], _shape: &Shape) {
     // todo!()
 }
 
-fn print(stack: &[u8], current_y: i32, shape: &Shape) {
-    println!("Stack: {}, y: {}", stack.len(), current_y);
+fn print(stack: &[u8], shape: &Shape) {
+    println!("Stack: {}", stack.len());
 
     let length = stack.len() as i32 + 5;
-    let y_range = current_y..current_y + shape.height;
 
     // draw top to bottom
     for y in (0..length).rev() {
-        // draw each horizontal cell in row
-        if y_range.contains(&y) {
-            let row = shape.row(current_y - y);
-            for x in 0..7 {
+        let row = stack.get(y as usize);
+
+        for x in 0..7 {
+            if shape.pos(x, y).is_some() {
+                print!("@")
+            } else if let Some(row) = row {
                 if row & (1 << x) > 0 {
-                    print!("@");
+                    print!("#");
                 } else {
-                    print!(".");
+                    print!(".")
                 }
-            }
-        } else {
-            for x in 0..7 {
+            } else {
                 print!(".");
             }
         }
@@ -128,37 +122,58 @@ fn print(stack: &[u8], current_y: i32, shape: &Shape) {
 fn part1(jets: Vec<Dir>) -> usize {
     const DOWN: Dir = Dir::Down;
 
-    // X bits are given in reverse order
-    //
-    // `0b111100` -> represents '@@@@' 2 units from left side
-    //    543210  <- bits indices
     let shapes: Vec<Shape> = vec![
-        Shape::new([0b000000, 0b000000, 0b000000, 0b111100]),
-        Shape::new([0b000000, 0b001000, 0b011100, 0b001000]),
-        Shape::new([0b000000, 0b000100, 0b000100, 0b011100]),
-        Shape::new([0b000100, 0b000100, 0b000100, 0b000100]),
-        Shape::new([0b000000, 0b000000, 0b001100, 0b001100]),
+        Shape::new(vec![
+            Pos::new(2, 0),
+            Pos::new(3, 0),
+            Pos::new(4, 0),
+            Pos::new(5, 0),
+        ]),
+        Shape::new(vec![
+            Pos::new(3, 0),
+            Pos::new(2, 1),
+            Pos::new(2, 1),
+            Pos::new(3, 1),
+            Pos::new(3, 2),
+        ]),
+        Shape::new(vec![
+            Pos::new(4, 0),
+            Pos::new(4, 1),
+            Pos::new(2, 2),
+            Pos::new(3, 2),
+            Pos::new(4, 2),
+        ]),
+        Shape::new(vec![
+            Pos::new(2, 0),
+            Pos::new(2, 1),
+            Pos::new(2, 2),
+            Pos::new(2, 3),
+        ]),
+        Shape::new(vec![
+            Pos::new(2, 0),
+            Pos::new(3, 0),
+            Pos::new(2, 1),
+            Pos::new(3, 1),
+        ]),
     ];
 
     let num_rocks = 1;
     let mut stack: Vec<u8> = Vec::new();
 
     for mut rock in shapes.iter().cycle().take(num_rocks).cloned() {
-        let mut current_y = stack.len() as i32 + 3;
+        rock.move_all(Pos::new(0, stack.len() as i32 + 3));
 
         // first apply jet then move down until the shape cannot move anymore.
         for dir in itertools::Itertools::intersperse(jets.iter(), &DOWN).cycle() {
-            if !move_rock(&mut stack, current_y, dir, &mut rock) {
-                merge_stack(&mut stack, current_y, &rock);
-                break;
-            } else {
+            if !move_rock(&mut stack, dir, &mut rock) {
                 if *dir == Dir::Down {
-                    current_y += -1;
+                    merge_stack(&mut stack, &rock);
+                    break;
                 }
             }
         }
 
-        print(&stack, current_y, &rock);
+        print(&stack, &rock);
     }
 
     0
@@ -179,13 +194,6 @@ mod tests {
     use super::*;
 
     const INPUT: &str = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>";
-
-    #[test]
-    fn check_shape_creation() {
-        let bar = Shape::new([0b000000, 0b000000, 0b000000, 0b111100]);
-        assert_eq!(4, bar.width);
-        assert_eq!(1, bar.height);
-    }
 
     #[test]
     fn check_part1() {
