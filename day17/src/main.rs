@@ -1,7 +1,5 @@
 //! Day 17: Pyroclastic Flow
 
-use std::ops::Shl;
-
 use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy)]
@@ -31,10 +29,12 @@ impl std::ops::Add for Pos {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[repr(u8)]
 enum Dir {
     Left = 0,
     Right,
+    Down,
 }
 
 impl Dir {
@@ -42,6 +42,7 @@ impl Dir {
         match self {
             Dir::Left => Pos::new(-1, 0),
             Dir::Right => Pos::new(1, 0),
+            Dir::Down => Pos::new(0, -1),
         }
     }
 }
@@ -56,7 +57,8 @@ impl From<char> for Dir {
     }
 }
 
-struct Shape {
+#[derive(Debug, Clone)]
+pub struct Shape {
     rows: Vec<u8>,
     height: i32,
     width: i32,
@@ -65,89 +67,98 @@ struct Shape {
 impl Shape {
     pub fn new(bits: [u8; 4]) -> Self {
         let width = bits.iter().map(|row| row.count_ones()).max().unwrap() as i32;
-        let height = bits.iter().filter(|&row| row.count_ones() > 1).sum::<u8>() as i32;
+        let height = bits.iter().filter(|&row| row.count_ones() > 0).count() as i32;
 
         Self {
-            rows: bits.to_vec(),
+            rows: bits.into_iter().rev().collect_vec(),
             height,
             width,
         }
     }
 
-    /// Returns the indexes of bits where it's one as iterator
-    pub fn ones(&self, row_index: i32) -> impl Iterator<Item = u8> + '_ {
-        assert!(0 <= row_index && row_index < self.height);
-        (0..self.width)
-            .filter(move |index| (self.rows[row_index as usize] & 1u8.shl(index) > 0))
-            .map(|index| index as u8)
+    pub fn row(&self, index: i32) -> u8 {
+        assert!(0 <= index && index < self.rows.len() as i32);
+        self.rows[index as usize]
+    }
+
+    pub fn intersects(&self, index: i32, rhs: u8) -> bool {
+        assert!(0 <= index && index < self.height);
+        (self.rows[index as usize] & rhs) > 0
     }
 }
 
-fn can_move(stack: &[u8], next_pos: Pos, shape: &Shape) -> bool {
+/// Returns true if rock was moved
+fn move_rock(_stack: &[u8], _y: i32, _dir: &Dir, _shape: &mut Shape) -> bool {
     false
 }
 
-fn merge_stack(stack: &[u8], current_pos: Pos, shape: &Shape) {
+fn merge_stack(_stack: &[u8], _current_y: i32, _shape: &Shape) {
     // todo!()
 }
 
-fn print(stack: &[u8], current_pos: &Pos, shape: &Shape) {
-    let length = stack.len() as i32 + 4;
+fn print(stack: &[u8], current_y: i32, shape: &Shape) {
+    println!("Stack: {}, y: {}", stack.len(), current_y);
 
-    // scan each row
+    let length = stack.len() as i32 + 5;
+    let y_range = current_y..current_y + shape.height;
+
+    // draw top to bottom
     for y in (0..length).rev() {
         // draw each horizontal cell in row
-        let diff = current_pos.y - y..current_pos.y - y + shape.height;
-
-        for x in 0..7 {
-            if diff.contains(&y)
-                && shape
-                    .ones(current_pos.y - y)
-                    .find(|index| current_pos.x + (*index as i32) == x)
-                    .is_some()
-            {
-                print!("@");
-            } else {
+        if y_range.contains(&y) {
+            let row = shape.row(current_y - y);
+            for x in 0..7 {
+                if row & (1 << x) > 0 {
+                    print!("@");
+                } else {
+                    print!(".");
+                }
+            }
+        } else {
+            for x in 0..7 {
                 print!(".");
             }
         }
+
         println!();
     }
     println!("-------");
 }
 
-fn part1(directions: Vec<Dir>) -> usize {
-    const DOWN: Pos = Pos::new(0, -1);
-    let jets = directions.iter().map(|dir| dir.dir()).collect_vec();
+fn part1(jets: Vec<Dir>) -> usize {
+    const DOWN: Dir = Dir::Down;
 
     // X bits are given in reverse order
     //
     // `0b111100` -> represents '@@@@' 2 units from left side
     //    543210  <- bits indices
     let shapes: Vec<Shape> = vec![
-        Shape::new([0b0000, 0b0000, 0b0000, 0b1111]),
-        Shape::new([0b0000, 0b0010, 0b0111, 0b0010]),
-        Shape::new([0b0000, 0b0001, 0b0001, 0b0111]),
-        Shape::new([0b0001, 0b0001, 0b0001, 0b0001]),
-        Shape::new([0b0000, 0b0000, 0b0011, 0b0011]),
+        Shape::new([0b000000, 0b000000, 0b000000, 0b111100]),
+        Shape::new([0b000000, 0b001000, 0b011100, 0b001000]),
+        Shape::new([0b000000, 0b000100, 0b000100, 0b011100]),
+        Shape::new([0b000100, 0b000100, 0b000100, 0b000100]),
+        Shape::new([0b000000, 0b000000, 0b001100, 0b001100]),
     ];
 
     let num_rocks = 1;
     let mut stack: Vec<u8> = Vec::new();
 
-    for rock in shapes.iter().cycle().take(num_rocks) {
-        let mut current_pos = Pos::new(2, stack.len() as i32 + 3);
+    for mut rock in shapes.iter().cycle().take(num_rocks).cloned() {
+        let mut current_y = stack.len() as i32 + 3;
 
         // first apply jet then move down until the shape cannot move anymore.
-        for dir in itertools::Itertools::intersperse(jets.iter(), &DOWN) {
-            if can_move(&mut stack, current_pos + *dir, &rock) {
-                current_pos += *dir;
+        for dir in itertools::Itertools::intersperse(jets.iter(), &DOWN).cycle() {
+            if !move_rock(&mut stack, current_y, dir, &mut rock) {
+                merge_stack(&mut stack, current_y, &rock);
+                break;
             } else {
-                merge_stack(&mut stack, current_pos, &rock);
+                if *dir == Dir::Down {
+                    current_y += -1;
+                }
             }
         }
 
-        print(&stack, &current_pos, &rock);
+        print(&stack, current_y, &rock);
     }
 
     0
@@ -158,8 +169,8 @@ fn parse(input: &str) -> Vec<Dir> {
 }
 
 fn main() {
-    //    let pipes = parse(include_str!("input.txt"));
-    //    println!("Part 1: {}", part1(pipes.clone()));
+    let jets = parse(include_str!("input.txt"));
+    println!("Part 1: {}", part1(jets));
     //    println!("Part 2: {}", part2(pipes));
 }
 
@@ -168,6 +179,13 @@ mod tests {
     use super::*;
 
     const INPUT: &str = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>";
+
+    #[test]
+    fn check_shape_creation() {
+        let bar = Shape::new([0b000000, 0b000000, 0b000000, 0b111100]);
+        assert_eq!(4, bar.width);
+        assert_eq!(1, bar.height);
+    }
 
     #[test]
     fn check_part1() {
