@@ -1,9 +1,5 @@
 //! Day 17: Pyroclastic Flow
 
-use std::collections::HashSet;
-
-use itertools::Itertools;
-
 #[derive(Debug, Clone, Copy)]
 pub struct Pos {
     x: i32,
@@ -69,10 +65,6 @@ impl Shape {
         Self { positions }
     }
 
-    pub fn row(&self, y: i32) -> impl Iterator<Item = &Pos> + '_ {
-        self.positions.iter().filter(move |&pos| pos.y == y)
-    }
-
     pub fn move_all(&mut self, dir: Pos) {
         self.positions.iter_mut().for_each(|pos| *pos += dir);
     }
@@ -82,41 +74,52 @@ impl Shape {
     }
 }
 
+#[derive(Debug)]
+struct Stack {
+    lines: Vec<u8>,
+}
+
+impl Stack {
+    pub fn new() -> Self {
+        Self { lines: Vec::new() }
+    }
+
+    pub fn height(&self) -> i32 {
+        self.lines.len() as i32
+    }
+
+    pub fn print(&self, shape: &Shape) {
+        let length = self.height() as i32 + 5;
+
+        // draw top to bottom
+        for y in (0..length).rev() {
+            let row = self.lines.get(y as usize);
+            for x in 0..7 {
+                if shape.pos(x, y).is_some() {
+                    print!("@")
+                } else if let Some(row) = row {
+                    if row & (1 << x) > 0 {
+                        print!("#");
+                    } else {
+                        print!(".")
+                    }
+                } else {
+                    print!(".");
+                }
+            }
+            println!();
+        }
+        println!("-------");
+    }
+}
+
 /// Returns true if rock was moved
-fn move_rock(_stack: &[u8], _dir: &Dir, _shape: &mut Shape) -> bool {
+fn move_rock(_stack: &Stack, _dir: &Dir, _shape: &mut Shape) -> bool {
     false
 }
 
-fn merge_stack(_stack: &mut [u8], _shape: &Shape) {
+fn merge_stack(_stack: &mut Stack, _shape: &Shape) {
     // todo!()
-}
-
-fn print(stack: &[u8], shape: &Shape) {
-    println!("Stack: {}", stack.len());
-
-    let length = stack.len() as i32 + 5;
-
-    // draw top to bottom
-    for y in (0..length).rev() {
-        let row = stack.get(y as usize);
-
-        for x in 0..7 {
-            if shape.pos(x, y).is_some() {
-                print!("@")
-            } else if let Some(row) = row {
-                if row & (1 << x) > 0 {
-                    print!("#");
-                } else {
-                    print!(".")
-                }
-            } else {
-                print!(".");
-            }
-        }
-
-        println!();
-    }
-    println!("-------");
 }
 
 fn part1(jets: Vec<Dir>) -> usize {
@@ -158,10 +161,10 @@ fn part1(jets: Vec<Dir>) -> usize {
     ];
 
     let num_rocks = 1;
-    let mut stack: Vec<u8> = Vec::new();
+    let mut stack = Stack::new();
 
     for mut rock in shapes.iter().cycle().take(num_rocks).cloned() {
-        rock.move_all(Pos::new(0, stack.len() as i32 + 3));
+        rock.move_all(Pos::new(0, stack.height() + 3));
 
         // first apply jet then move down until the shape cannot move anymore.
         for dir in itertools::Itertools::intersperse(jets.iter(), &DOWN).cycle() {
@@ -173,7 +176,7 @@ fn part1(jets: Vec<Dir>) -> usize {
             }
         }
 
-        print(&stack, &rock);
+        stack.print(&rock);
     }
 
     0
