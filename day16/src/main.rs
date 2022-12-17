@@ -1,4 +1,7 @@
-use std::{cmp::max, collections::BTreeMap};
+use std::{
+    cmp::{max, min},
+    collections::{BTreeMap, HashMap},
+};
 
 use array2d::Array2D;
 use itertools::Itertools;
@@ -70,12 +73,12 @@ impl Network {
             }
         }
 
-        // Apply Floyd-Marshall to calculate shortest path for each pair of nodes
+        // Use Floyd-Marshall algorithm to calculate shortest path for each pair of nodes
         // See https://www.programiz.com/dsa/floyd-warshall-algorithm
         for k in 0..indexes.len() {
             for i in 0..indexes.len() {
                 for j in 0..indexes.len() {
-                    distribution[(i, j)] = std::cmp::min(
+                    distribution[(i, j)] = min(
                         distribution[(i, j)],
                         distribution[(i, k)] + distribution[(k, j)],
                     );
@@ -97,6 +100,7 @@ impl Network {
         let num_open_valves = open_valves.len();
         let mut interesting = Array2D::filled_with(Self::INF, num_open_valves, num_open_valves);
         let mut flow_rates: BTreeMap<usize, i32> = BTreeMap::new();
+        let mut start = usize::MAX;
 
         // Copy the distribution of all open valves into a smaller matrix
         for y in 0..num_open_valves {
@@ -104,9 +108,11 @@ impl Network {
                 interesting[(x, y)] = distribution[(open_valves[x], open_valves[y])] + 1;
             }
             flow_rates.insert(y, pipes[open_valves[y]].flow_rate);
+            // TODO check again why that is necessary
+            if pipes[open_valves[y]].valve == "AA" {
+                start = y;
+            }
         }
-
-        // TODO check start field
 
         Self {
             start,
@@ -120,7 +126,7 @@ impl Network {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct Worker {
     time_left: i32,
     pos: usize,
@@ -135,14 +141,18 @@ impl Worker {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct State {
     open_valves: Vec<usize>,
-    worker: Worker,
+    workers: Vec<Worker>,
 }
 
 /// Find the best path to open valves
-fn solve(current: State, network: &Network, cache: &mut BTreeMap<State, i32>) -> i32 {
+fn solve(current: State, network: &Network, cache: &mut HashMap<State, i32>) -> i32 {
+    if let Some(value) = cache.get(&current) {
+        return *value;
+    }
+
     let mut best = 0;
 
-    let worker = &current.worker;
+    let worker = &current.workers[0];
 
     for next in current.open_valves.iter() {
         let remaining = current
@@ -158,35 +168,57 @@ fn solve(current: State, network: &Network, cache: &mut BTreeMap<State, i32>) ->
             continue;
         }
 
-        let worker = Worker::new(time_left, *next);
+        let mut workers = current.workers.clone();
+        workers[0] = Worker::new(time_left, *next);
         let next_state = State {
             open_valves: remaining,
-            worker,
+            workers: workers,
         };
 
         let total = solve(next_state, network, cache) + (time_left * network.flow_rates[next]);
         best = max(best, total);
     }
 
+    if current.workers.len() > 1 {
+        let new_workers = current.workers[1..].to_vec();
+        let total = solve(
+            State {
+                open_valves: current.open_valves.clone(),
+                workers: new_workers,
+            },
+            network,
+            cache,
+        );
+        best = max(best, total);
+    }
+
+    cache.insert(current, best);
+
     best
 }
 
 /// Determine the best path to maximume the flow of all open valves.
 ///
-/// Travelling salesman problem!
-/// Issue is a greedy algorithm ignores the best path, only considers the next best position
-/// but ignoring optimal path finding of all nodes.
-fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> i32 {
+fn part1(pipes: Vec<Pipe>) -> i32 {
     let network = Network::create(pipes);
     let state = State {
         open_valves: Vec::from_iter(0..network.flow_rates.len()),
-        worker: Worker::new(num_rounds, network.start),
+        workers: vec![Worker::new(30, network.start)],
     };
-    solve(state, &network, &mut BTreeMap::new())
+    solve(state, &network, &mut HashMap::new())
 }
 
-fn part1(pipes: Vec<Pipe>) -> i32 {
-    open_valves(pipes, 30)
+fn part2(pipes: Vec<Pipe>) -> i32 {
+    let network = Network::create(pipes);
+    let workers = std::iter::repeat_with(|| Worker::new(26, network.start))
+        .take(2)
+        .collect_vec();
+
+    let state = State {
+        open_valves: Vec::from_iter(0..network.flow_rates.len()),
+        workers,
+    };
+    solve(state, &network, &mut HashMap::new())
 }
 
 fn parse(input: &str) -> Vec<Pipe> {
@@ -201,7 +233,8 @@ fn parse(input: &str) -> Vec<Pipe> {
 
 fn main() {
     let pipes = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(pipes));
+    println!("Part 1: {}", part1(pipes.clone()));
+    println!("Part 2: {}", part2(pipes));
 }
 
 #[cfg(test)]
@@ -244,6 +277,6 @@ mod tests {
 
     #[test]
     fn check_part2() {
-        // assert_eq!(56_000_011, part2(parse(INPUT), 20));
+        assert_eq!(1707, part2(parse(INPUT)));
     }
 }
