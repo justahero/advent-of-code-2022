@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use array2d::Array2D;
-use itertools::Itertools;
 
 peg::parser! {
     grammar line_parser() for str {
@@ -45,9 +44,75 @@ struct Pipe {
 #[derive(Debug)]
 struct Network {
     start: usize,
-    end: usize,
     flow_rates: BTreeMap<usize, i32>,
     tunnels: Array2D<i32>,
+}
+impl Network {
+    const INF: i32 = 9999;
+
+    pub fn create(pipes: Vec<Pipe>) -> Self {
+        let indexes: BTreeMap<String, usize> = pipes
+            .iter()
+            .enumerate()
+            .map(|(index, pipe)| (pipe.valve.to_string(), index))
+            .collect::<BTreeMap<_, _>>();
+
+        let start = *indexes.get("AA").expect("Failed to get pipe");
+
+        let mut distribution = Array2D::filled_with(Self::INF, pipes.len(), pipes.len());
+
+        // Fill in matrix all existing pipes
+        for pipe in pipes.iter() {
+            distribution[(indexes[&pipe.valve], indexes[&pipe.valve])] = 0;
+            for tunnel in &pipe.tunnels {
+                distribution[(indexes[&pipe.valve], indexes[tunnel])] = 1;
+            }
+        }
+
+        // Apply Floyd-Marshall to calculate shortest path for each pair of nodes
+        // See https://www.programiz.com/dsa/floyd-warshall-algorithm
+        for k in 0..indexes.len() {
+            for i in 0..indexes.len() {
+                for j in 0..indexes.len() {
+                    distribution[(i, j)] = std::cmp::min(
+                        distribution[(i, j)],
+                        distribution[(i, k)] + distribution[(k, j)],
+                    );
+                }
+            }
+        }
+
+        // Get all valve indexes with positive flow rate & the starting position to move from.
+        let open_valves = pipes
+            .iter()
+            .enumerate()
+            .filter(|(index, pipe)| {
+                (distribution[(*index, start)] < Self::INF && pipe.flow_rate > 0)
+                    || (*index == start)
+            })
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+
+        let num_open_valves = open_valves.len();
+        let mut interesting = Array2D::filled_with(Self::INF, num_open_valves, num_open_valves);
+        let mut flow_rates: BTreeMap<usize, i32> = BTreeMap::new();
+
+        // Copy the distribution of all open valves into a smaller matrix
+        for y in 0..num_open_valves {
+            for x in 0..num_open_valves {
+                interesting[(x, y)] = distribution[(open_valves[x], open_valves[y])] + 1;
+            }
+            flow_rates.insert(y, pipes[open_valves[y]].flow_rate);
+        }
+
+        // TODO check start field
+
+        Self {
+            start,
+            flow_rates,
+            tunnels: interesting,
+        }
+    }
 }
 
 fn total_flow(num_rounds: i32, start: &str, pipes: &[&&Pipe]) -> usize {
@@ -60,47 +125,7 @@ fn total_flow(num_rounds: i32, start: &str, pipes: &[&&Pipe]) -> usize {
 /// Issue is a greedy algorithm ignores the best path, only considers the next best position
 /// but ignoring optimal path finding of all nodes.
 fn open_valves(pipes: Vec<Pipe>, num_rounds: i32) -> Option<usize> {
-    let current_valve = "AA".to_string();
-
-    // Get the list of possible permutations of pipes that have a flow rate
-    /*
-    let with_flow_rates = pipes
-        .iter()
-        .filter(|&pipe| pipe.flow_rate > 0)
-        .collect::<Vec<_>>();
-
-    let length = with_flow_rates.len();
-    println!("LENGTH: {}", length);
-    */
-
-    let indexes: BTreeMap<String, usize> = pipes
-        .iter()
-        .enumerate()
-        .map(|(index, pipe)| (pipe.valve.to_string(), index))
-        .collect::<BTreeMap<_, _>>();
-
-    let mut distribution = Array2D::filled_with(i32::MAX, pipes.len(), pipes.len());
-
-    // Fill in matrix all existing pipes
-    for pipe in pipes.iter() {
-        distribution[(indexes[&pipe.valve], indexes[&pipe.valve])] = 0;
-        for tunnel in &pipe.tunnels {
-            distribution[(indexes[&pipe.valve], indexes[tunnel])] = 1;
-        }
-    }
-
-    // Apply Floyd-Marshall to calculate shortest path for each pair of nodes
-    // See https://www.programiz.com/dsa/floyd-warshall-algorithm
-    for k in 0..indexes.len() {
-        for i in 0..indexes.len() {
-            for j in 0..indexes.len() {
-                distribution[(i, j)] = std::cmp::min(
-                    distribution[(i, j)],
-                    distribution[(i, k)] + distribution[(k, j)],
-                );
-            }
-        }
-    }
+    let network = Network::create(pipes);
 
     Some(0)
 }
