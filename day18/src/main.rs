@@ -1,9 +1,6 @@
 //! Day 18: Boiling Boulders
 
-use std::{
-    fmt::{Display, Formatter},
-    ops::Index,
-};
+use std::ops::Index;
 
 use anyhow::anyhow;
 
@@ -18,12 +15,6 @@ impl Cube {
         let b = self[1] == rhs[1] && self[2] == rhs[2] && (self[0] - rhs[0]).abs() == 1;
         let c = self[2] == rhs[2] && self[0] == rhs[0] && (self[1] - rhs[1]).abs() == 1;
         a || b || c
-    }
-}
-
-impl Display for Cube {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({},{},{})", self.0[0], self.0[1], self.0[2])
     }
 }
 
@@ -66,9 +57,16 @@ fn part2(cubes: Vec<Cube>) -> usize {
     let total_count = part1(cubes.clone());
 
     // find all cubes that are surrounded completely
-    let num_cubes = 0;
+    let mut num_cubes = 0;
     for cube in cubes.iter() {
-        // let neighbors =
+        if cubes
+            .iter()
+            .filter(|rhs| *rhs != cube && rhs.neighbor(cube))
+            .count()
+            == 6
+        {
+            num_cubes += 1;
+        }
     }
 
     total_count - 6 * num_cubes
