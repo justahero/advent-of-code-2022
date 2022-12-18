@@ -12,6 +12,15 @@ use itertools::Itertools;
 #[derive(Debug, PartialEq, Eq, Clone)]
 struct Cube([i32; 3]);
 
+impl Cube {
+    pub fn neighbor(&self, rhs: &Cube) -> bool {
+        let a = self[0] == rhs[0] && self[1] == rhs[1] && (self[2] - rhs[2]).abs() == 1;
+        let b = self[1] == rhs[1] && self[2] == rhs[2] && (self[0] - rhs[0]).abs() == 1;
+        let c = self[2] == rhs[2] && self[0] == rhs[0] && (self[1] - rhs[1]).abs() == 1;
+        a || b || c
+    }
+}
+
 impl Display for Cube {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "({},{},{})", self.0[0], self.0[1], self.0[2])
@@ -47,19 +56,22 @@ fn part1(cubes: Vec<Cube>) -> usize {
     let total_adjacent = cubes
         .iter()
         .combinations(2)
-        .filter(|cubes| {
-            let (lhs, rhs) = (cubes[0], cubes[1]);
-
-            let a = lhs[0] == rhs[0] && lhs[1] == rhs[1] && (lhs[2] - rhs[2]).abs() == 1;
-            let b = lhs[1] == rhs[1] && lhs[2] == rhs[2] && (lhs[0] - rhs[0]).abs() == 1;
-            let c = lhs[2] == rhs[2] && lhs[0] == rhs[0] && (lhs[1] - rhs[1]).abs() == 1;
-
-            a || b || c
-        })
-        .inspect(|cubes| println!("Neighbors: {} {}", cubes[0], cubes[1]))
+        .filter(|cubes| cubes[0].neighbor(&cubes[1]))
         .count();
 
     (cubes.len() * 6) - 2 * total_adjacent
+}
+
+fn part2(cubes: Vec<Cube>) -> usize {
+    let total_count = part1(cubes.clone());
+
+    // find all cubes that are surrounded completely
+    let num_cubes = 0;
+    for cube in cubes.iter() {
+        // let neighbors =
+    }
+
+    total_count - 6 * num_cubes
 }
 
 fn parse(input: &str) -> Vec<Cube> {
@@ -74,7 +86,7 @@ fn parse(input: &str) -> Vec<Cube> {
 fn main() {
     let cubes = parse(include_str!("input.txt"));
     println!("Part 1: {}", part1(cubes.clone()));
-    // println!("Part 2: {}", part2(jets));
+    println!("Part 2: {}", part2(cubes));
 }
 
 #[cfg(test)]
@@ -100,5 +112,10 @@ mod tests {
     #[test]
     fn check_part1() {
         assert_eq!(64, part1(parse(INPUT)));
+    }
+
+    #[test]
+    fn check_part2() {
+        assert_eq!(58, part2(parse(INPUT)));
     }
 }
