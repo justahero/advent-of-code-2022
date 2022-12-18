@@ -1,5 +1,7 @@
 //! Day 17: Pyroclastic Flow
 
+use std::collections::HashMap;
+
 use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy)]
@@ -76,55 +78,47 @@ impl Shape {
     }
 }
 
+const CAVE_WIDTH: usize = 7;
+
 #[derive(Debug)]
 struct Stack {
-    lines: Vec<u8>,
+    /// Stack of all lines, each entry represents an empty field (`0`) or a rock (`#`).
+    lines: Vec<[u8; CAVE_WIDTH]>,
 }
 
 impl Stack {
     pub fn new() -> Self {
-        Self { lines: Vec::new() }
-    }
-
-    pub fn height(&self) -> i64 {
-        self.lines.len() as i64
-    }
-
-    pub fn print(&self, shape: &Shape) {
-        let length = self.height() as i64 + 6;
-
-        // draw top to bottom
-        for y in (0..length).rev() {
-            let row = self.lines.get(y as usize);
-            for x in 0..7 {
-                if shape.pos(x, y).is_some() {
-                    print!("@")
-                } else if let Some(row) = row {
-                    if row & (1 << x) > 0 {
-                        print!("#");
-                    } else {
-                        print!(".")
-                    }
-                } else {
-                    print!(".");
-                }
-            }
-            println!();
+        // 10_000 rows are enough to repeat the same patterns over & over.
+        Self {
+            lines: std::iter::repeat([0; CAVE_WIDTH])
+                .take(10_000)
+                .collect_vec(),
         }
-        println!("-------\n");
     }
 
-    #[inline]
-    pub fn set(&mut self, pos: &Pos) {
-        assert!(self.is_free(pos.x, pos.y)); // remove
-        self.lines[pos.y as usize] |= 1 << pos.x;
+    pub fn height(&self) -> usize {
+        self.lines
+            .iter()
+            .position(|row| row == &[0; CAVE_WIDTH])
+            .unwrap()
+    }
+
+    pub fn column_heights(&self) -> [usize; CAVE_WIDTH] {
+        let mut heights = [0; CAVE_WIDTH];
+        let y = self.height();
+        for x in 0..CAVE_WIDTH {
+            heights[x] = (0..y)
+                .find(|&y| self.lines[y][x] == 0)
+                .unwrap_or(usize::MAX);
+        }
+        heights
     }
 
     #[inline]
     pub fn is_free(&self, x: i64, y: i64) -> bool {
         if 0 <= x && x < 7 && y >= 0 {
-            if y < self.height() {
-                return (self.lines[y as usize] & (1 << x)) == 0;
+            if y < self.height() as i64 {
+                return self.lines[y as usize][x as usize] == 0;
             } else {
                 return true;
             }
@@ -135,29 +129,20 @@ impl Stack {
 
 /// Returns true if rock was moved
 fn can_move_rock(stack: &Stack, dir: &Dir, shape: &mut Shape) -> bool {
-    // Calculate the next position of the shape.
-    let next_positions = shape
+    shape
         .positions
         .iter()
         .map(|pos| *pos + dir.dir())
-        .collect_vec();
-
-    // for each block of the shape check it's actually possible to move there
-    next_positions.iter().all(|pos| stack.is_free(pos.x, pos.y))
+        .all(|Pos { x, y }| stack.is_free(x, y))
 }
 
 fn merge_stack(stack: &mut Stack, shape: &Shape) {
     for pos in shape.positions.iter() {
-        while pos.y >= stack.height() {
-            stack.lines.push(0b0000000);
-        }
-        stack.set(pos);
+        stack.lines[pos.y as usize][pos.x as usize] = b'#';
     }
 }
 
-fn fill_rocks(mut stack: Stack, num_rocks: usize, jets: &[Dir]) -> usize {
-    const DOWN: Dir = Dir::Down;
-
+fn fill_rocks(mut stack: Stack, target_num_rocks: usize, jets: &[Dir]) -> usize {
     let shapes: Vec<Shape> = vec![
         Shape::new(vec![
             Pos::new(2, 0),
@@ -193,25 +178,48 @@ fn fill_rocks(mut stack: Stack, num_rocks: usize, jets: &[Dir]) -> usize {
         ]),
     ];
 
-    let mut jet_iter = itertools::Itertools::intersperse(jets.iter().cycle(), &DOWN);
+    let mut total_height = 0;
+    let mut rocks_count = 0;
 
-    for mut rock in shapes.iter().cycle().take(num_rocks).cloned() {
-        rock.move_all(Pos::new(0, stack.height() + 3));
+    let mut cache = HashMap::new();
+    let mut shapes_iter = shapes.into_iter().enumerate().cycle();
+    let mut jet_iter = jets.iter().enumerate().cycle();
 
-        // first apply jet then move down until the shape cannot move anymore, then repeat for next rock
-        for dir in jet_iter.by_ref() {
-            if !can_move_rock(&mut stack, dir, &mut rock) {
-                if *dir == Dir::Down {
-                    merge_stack(&mut stack, &rock);
-                    break;
-                }
-            } else {
+    while rocks_count < target_num_rocks {
+        let (rock_index, mut rock) = shapes_iter.next().expect("Failed to get next shape");
+        rock.move_all(Pos::new(0, stack.height() as i64 + 3));
+
+        let jet_index = loop {
+            // First apply jet force
+            let (jet_index, dir) = jet_iter.next().expect("Failed to get dir");
+            if can_move_rock(&mut stack, dir, &mut rock) {
                 rock.move_all(dir.dir());
             }
+
+            // Second move down
+            let dir = &Dir::Down;
+            if can_move_rock(&mut stack, dir, &mut rock) {
+                rock.move_all(dir.dir());
+            } else {
+                merge_stack(&mut stack, &rock);
+                break jet_index;
+            }
+        };
+
+        // check if a cycle repeats
+        let key = (rock_index, jet_index % jets.len(), stack.column_heights());
+        if let Some((index, height)) = cache.get(&key) {
+            let repeats = (target_num_rocks - index) / (rocks_count - index) - 1;
+            rocks_count += (rocks_count - index) * repeats;
+            total_height += (stack.height() - height) * repeats;
+        } else {
+            cache.insert(key, (rocks_count, stack.height()));
         }
+
+        rocks_count += 1;
     }
 
-    stack.height() as usize
+    total_height + stack.height()
 }
 
 fn part1(jets: Vec<Dir>) -> usize {
