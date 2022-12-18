@@ -1,6 +1,9 @@
 //! Day 18: Boiling Boulders
 
-use std::fmt::{Display, Formatter};
+use std::{
+    fmt::{Display, Formatter},
+    ops::Index,
+};
 
 use anyhow::anyhow;
 
@@ -12,6 +15,14 @@ struct Cube([i32; 3]);
 impl Display for Cube {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "({},{},{})", self.0[0], self.0[1], self.0[2])
+    }
+}
+
+impl Index<usize> for Cube {
+    type Output = i32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
     }
 }
 
@@ -33,18 +44,22 @@ impl TryFrom<&str> for Cube {
 }
 
 fn part1(cubes: Vec<Cube>) -> usize {
-    // for each fixed plane
+    let total_adjacent = cubes
+        .iter()
+        .combinations(2)
+        .filter(|cubes| {
+            let (lhs, rhs) = (cubes[0], cubes[1]);
 
-    // 1,1,1 & 2,1,1
-    let total_adjacent = 0;
+            let a = lhs[0] == rhs[0] && lhs[1] == rhs[1] && (lhs[2] - rhs[2]).abs() == 1;
+            let b = lhs[1] == rhs[1] && lhs[2] == rhs[2] && (lhs[0] - rhs[0]).abs() == 1;
+            let c = lhs[2] == rhs[2] && lhs[0] == rhs[0] && (lhs[1] - rhs[1]).abs() == 1;
 
-    // might be very inefficient, use some sorting first?
-    cubes.iter().combinations(2).filter(|cubes| {
-        let (lhs, rhs) = (cubes[0], cubes[1]);
-        true
-    }).inspect(|cubes| println!("Neighbors: {} {}", cubes[0], cubes[1])).count();
+            a || b || c
+        })
+        .inspect(|cubes| println!("Neighbors: {} {}", cubes[0], cubes[1]))
+        .count();
 
-    0
+    (cubes.len() * 6) - 2 * total_adjacent
 }
 
 fn parse(input: &str) -> Vec<Cube> {
