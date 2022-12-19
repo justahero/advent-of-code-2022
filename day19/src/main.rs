@@ -1,6 +1,9 @@
 //! Day 19: Not Enough Minerals
 
-use std::collections::{HashSet, VecDeque};
+use std::{
+    collections::{HashSet, VecDeque},
+    ops::Index,
+};
 
 use anyhow::anyhow;
 
@@ -85,6 +88,16 @@ impl State {
             time: self.time + 1,
         }
     }
+
+    pub fn ore(&self, mineral: Mineral) -> u16 {
+        let index = mineral as u8;
+        self.ores[index as usize]
+    }
+
+    pub fn robot(&self, mineral: Mineral) -> u16 {
+        let index = mineral as u8;
+        self.robots[index as usize]
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -128,7 +141,7 @@ impl Blueprint {
     pub fn geodes(&self, minutes: u16) -> u32 {
         println!("-- Blueprint {}", self.id);
 
-        // beginning state, one ore robot, no amounts
+        // beginning state, one "ore robot", no ores
         let state = State::default();
 
         let mut states = VecDeque::new();
@@ -144,7 +157,12 @@ impl Blueprint {
             visited_states.insert(state.clone());
 
             // Check if there is anything that can be built, from most expensive to cheapest
-            let ores = [Mineral::Geode, Mineral::Obsidian, Mineral::Clay, Mineral::Ore];
+            let ores = [
+                Mineral::Geode,
+                Mineral::Obsidian,
+                Mineral::Clay,
+                Mineral::Ore,
+            ];
         }
 
         0
@@ -198,10 +216,7 @@ mod tests {
         assert_eq!(
             Ok(Blueprint {
                 id: 1,
-                ore: 4,
-                clay: 2,
-                obsidian: (3, 14),
-                geode: (2, 7)
+                robot_costs: [[4, 0, 0, 0], [2, 0, 0, 0], [3, 14, 0, 0], [2, 0, 7, 0]],
             }),
             line_parser::blueprint(input),
         );
@@ -220,7 +235,6 @@ mod tests {
 
     #[test]
     fn check_part1() {
-        // assert_eq!(64, part1(parse(INPUT)));
         assert_eq!(12, part1(parse(INPUT)));
     }
 
