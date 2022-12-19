@@ -1,6 +1,6 @@
 //! Day 19: Not Enough Minerals
 
-use std::collections::{HashSet, VecDeque};
+use std::{collections::{HashSet, VecDeque}, cmp::max};
 
 use anyhow::anyhow;
 
@@ -19,16 +19,16 @@ peg::parser! {
         rule ws()
             = " "
 
-        rule number() -> u16
+        rule number() -> i32
             = n:$(['0'..='9']+) {? n.parse().or(Err("Failed to parse number")) }
 
-        rule robot() -> u16
+        rule robot() -> i32
             = "Each " ("ore" / "clay") " robot costs " n:number() " ore." { n }
 
-        rule obsidian() -> (u16, u16)
+        rule obsidian() -> (i32, i32)
             = "Each obsidian robot costs " ore:number() " ore and " clay:number() " clay." { (ore, clay) }
 
-        rule geode() -> (u16, u16)
+        rule geode() -> (i32, i32)
             = "Each geode robot costs " ore:number() " ore and " obsidian:number() " obsidian." { (ore, obsidian) }
 
         rule id() -> u32
@@ -56,8 +56,8 @@ enum Mineral {
 /// The list of robots & minerals: ore, clay, obsidian, geodes
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct State {
-    pub robots: [u16; 4],
-    pub ores: [u16; 4],
+    pub robots: [i32; 4],
+    pub ores: [i32; 4],
     pub time: u16,
 }
 
@@ -72,14 +72,14 @@ impl Default for State {
 }
 
 impl State {
-    pub fn can_build(&self, costs: &[u16; 4]) -> bool {
+    pub fn can_build(&self, costs: &[i32; 4]) -> bool {
         self.ores[0] >= costs[0]
             && self.ores[1] >= costs[1]
             && self.ores[2] >= costs[2]
             && self.ores[3] >= costs[3]
     }
 
-    pub fn spend(&mut self, costs: &[u16; 4]) {
+    pub fn spend(&mut self, costs: &[i32; 4]) {
         self.ores[0] -= costs[0];
         self.ores[1] -= costs[1];
         self.ores[2] -= costs[2];
@@ -95,24 +95,29 @@ impl State {
     }
 
     #[inline]
-    pub fn ore(&self, mineral: Mineral) -> u16 {
+    pub fn ore(&self, mineral: Mineral) -> i32 {
         self.ores[mineral as usize]
     }
 
     #[inline]
-    pub fn robot_mut(&mut self, mineral: Mineral) -> &mut u16 {
+    pub fn robot_mut(&mut self, mineral: Mineral) -> &mut i32 {
         &mut self.robots[mineral as usize]
+    }
+
+    #[inline]
+    pub fn robot(&self, mineral: Mineral) -> i32 {
+        self.robots[mineral as usize]
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 struct Blueprint {
     id: u32,
-    robot_costs: [[u16; 4]; 4],
+    robot_costs: [[i32; 4]; 4],
 }
 
 impl Blueprint {
-    pub fn new(id: u32, ore: u16, clay: u16, obsidian: (u16, u16), geode: (u16, u16)) -> Self {
+    pub fn new(id: u32, ore: i32, clay: i32, obsidian: (i32, i32), geode: (i32, i32)) -> Self {
         let costs = [
             [ore, 0, 0, 0],
             [clay, 0, 0, 0],
@@ -143,7 +148,7 @@ impl Blueprint {
     ///   Each obsidian robot costs 4 ore and 18 clay.
     ///   Each geode robot costs 3 ore and 8 obsidian.
     ///
-    pub fn geodes(&self, minutes: u16) -> u16 {
+    pub fn geodes(&self, minutes: u16) -> i32 {
         println!("-- Blueprint {}", self.id);
 
         let state = State::default();
@@ -157,8 +162,8 @@ impl Blueprint {
         let max_ores = self.robot_costs.iter().map(|c| c[0]).max().unwrap();
 
         while let Some(state) = states.pop_front() {
-            best_geodes = std::cmp::max(best_geodes, state.ore(Mineral::Geode));
-            if state.ore(Mineral::Geode) < best_geodes || visited_states.contains(&state) {
+            best_geodes = max(best_geodes, state.ore(Mineral::Geode));
+            if state.ore(Mineral::Geode) < best_geodes - 1 || visited_states.contains(&state) {
                 continue;
             }
 
@@ -177,13 +182,11 @@ impl Blueprint {
                 *next_state.robot_mut(Mineral::Geode) += 1;
                 states.push_back(next_state);
             } else {
-                if state.can_build(self.costs(Mineral::Obsidian))
-                    && state.ore(Mineral::Ore) <= max_ores
-                {
+                if state.can_build(self.costs(Mineral::Ore)) && state.robot(Mineral::Ore) < max_ores {
                     let mut next_state = state.clone();
-                    next_state.spend(self.costs(Mineral::Obsidian));
+                    next_state.spend(self.costs(Mineral::Ore));
                     next_state.dig();
-                    *next_state.robot_mut(Mineral::Obsidian) += 1;
+                    *next_state.robot_mut(Mineral::Ore) += 1;
                     states.push_back(next_state);
                 }
 
@@ -195,11 +198,11 @@ impl Blueprint {
                     states.push_back(next_state);
                 }
 
-                if state.can_build(self.costs(Mineral::Ore)) {
+                if state.can_build(self.costs(Mineral::Obsidian)) {
                     let mut next_state = state.clone();
-                    next_state.spend(self.costs(Mineral::Ore));
+                    next_state.spend(self.costs(Mineral::Obsidian));
                     next_state.dig();
-                    *next_state.robot_mut(Mineral::Ore) += 1;
+                    *next_state.robot_mut(Mineral::Obsidian) += 1;
                     states.push_back(next_state);
                 }
             }
@@ -210,13 +213,13 @@ impl Blueprint {
             states.push_back(next_state);
         }
 
-        println!("  ... id: {}, geodes: {}", self.id(), best_geodes);
+        println!("  ... geodes: {}", best_geodes);
 
         best_geodes
     }
 
     /// Returns the mineral costs for a specific robot
-    fn costs(&self, mineral: Mineral) -> &[u16; 4] {
+    fn costs(&self, mineral: Mineral) -> &[i32; 4] {
         let index = mineral as usize;
         &self.robot_costs[index]
     }
@@ -248,7 +251,9 @@ fn parse(input: &str) -> Vec<Blueprint> {
 
 fn main() {
     let blueprints = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(blueprints));
+    let result = part1(blueprints);
+    assert!(result > 787);
+    println!("Part 1: {}", result);
 }
 
 #[cfg(test)]
