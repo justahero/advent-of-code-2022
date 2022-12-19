@@ -72,10 +72,6 @@ impl Default for State {
 }
 
 impl State {
-    pub fn new(time: u16, ores: [u16; 4], robots: [u16; 4]) -> Self {
-        Self { robots, ores, time }
-    }
-
     pub fn can_build(&self, costs: &[u16; 4]) -> bool {
         self.ores[0] >= costs[0]
             && self.ores[1] >= costs[1]
@@ -90,28 +86,22 @@ impl State {
         self.ores[3] -= costs[3];
     }
 
-    pub fn next_state(&self) -> Self {
-        let ores = [
-            self.ores[0] + self.robots[0],
-            self.ores[1] + self.robots[1],
-            self.ores[2] + self.robots[2],
-            self.ores[3] + self.robots[3],
-        ];
-        Self {
-            robots: self.robots.clone(),
-            ores,
-            time: self.time + 1,
-        }
+    pub fn dig(&mut self) {
+        self.ores[0] += self.robots[0];
+        self.ores[1] += self.robots[1];
+        self.ores[2] += self.robots[2];
+        self.ores[3] += self.robots[3];
+        self.time += 1;
     }
 
+    #[inline]
     pub fn ore(&self, mineral: Mineral) -> u16 {
-        let index = mineral as u8;
-        self.ores[index as usize]
+        self.ores[mineral as usize]
     }
 
+    #[inline]
     pub fn robot_mut(&mut self, mineral: Mineral) -> &mut u16 {
-        let index = mineral as u8;
-        &mut self.robots[index as usize]
+        &mut self.robots[mineral as usize]
     }
 }
 
@@ -156,7 +146,6 @@ impl Blueprint {
     pub fn geodes(&self, minutes: u16) -> u16 {
         println!("-- Blueprint {}", self.id);
 
-        // beginning state, one "ore robot", no ores
         let state = State::default();
         let mut best_geodes = 0;
 
@@ -165,9 +154,9 @@ impl Blueprint {
 
         states.push_back(state.clone());
 
-        while let Some(state) = states.pop_front() {
-            // println!("Current state: {:?}", state);
+        let max_ores = self.robot_costs.iter().map(|c| c[0]).max().unwrap();
 
+        while let Some(state) = states.pop_front() {
             best_geodes = std::cmp::max(best_geodes, state.ore(Mineral::Geode));
             if state.ore(Mineral::Geode) < best_geodes || visited_states.contains(&state) {
                 continue;
@@ -182,36 +171,46 @@ impl Blueprint {
 
             // Check if there is anything that can be built, from most expensive to cheapest
             if state.can_build(self.costs(Mineral::Geode)) {
-                let mut next_state = state.next_state();
+                let mut next_state = state.clone();
                 next_state.spend(self.costs(Mineral::Geode));
+                next_state.dig();
                 *next_state.robot_mut(Mineral::Geode) += 1;
                 states.push_back(next_state);
             } else {
-                if state.can_build(self.costs(Mineral::Obsidian)) {
-                    let mut next_state = state.next_state();
+                if state.can_build(self.costs(Mineral::Obsidian))
+                    && state.ore(Mineral::Ore) <= max_ores
+                {
+                    let mut next_state = state.clone();
                     next_state.spend(self.costs(Mineral::Obsidian));
+                    next_state.dig();
                     *next_state.robot_mut(Mineral::Obsidian) += 1;
                     states.push_back(next_state);
                 }
 
                 if state.can_build(self.costs(Mineral::Clay)) {
-                    let mut next_state = state.next_state();
+                    let mut next_state = state.clone();
                     next_state.spend(self.costs(Mineral::Clay));
+                    next_state.dig();
                     *next_state.robot_mut(Mineral::Clay) += 1;
                     states.push_back(next_state);
                 }
 
                 if state.can_build(self.costs(Mineral::Ore)) {
-                    let mut next_state = state.next_state();
+                    let mut next_state = state.clone();
                     next_state.spend(self.costs(Mineral::Ore));
+                    next_state.dig();
                     *next_state.robot_mut(Mineral::Ore) += 1;
                     states.push_back(next_state);
                 }
             }
 
             // otherwise continue to dig with current robots
-            states.push_back(state.next_state());
+            let mut next_state = state.clone();
+            next_state.dig();
+            states.push_back(next_state);
         }
+
+        println!("  ... id: {}, geodes: {}", self.id(), best_geodes);
 
         best_geodes
     }
@@ -231,13 +230,12 @@ impl TryFrom<&str> for Blueprint {
     }
 }
 
-fn part1(blueprints: Vec<Blueprint>) -> u16 {
+fn part1(blueprints: Vec<Blueprint>) -> u32 {
     let minutes = 24;
     blueprints
         .iter()
-        .map(|blueprint| blueprint.geodes(minutes) * blueprint.id() as u16)
-        .max()
-        .expect("Failed to get max value")
+        .map(|blueprint| blueprint.geodes(minutes) as u32 * blueprint.id() as u32)
+        .sum::<u32>()
 }
 
 fn parse(input: &str) -> Vec<Blueprint> {
@@ -288,22 +286,19 @@ mod tests {
     }
 
     #[test]
-    fn advance_next_state() {
-        assert_eq!(
-            State::new(1, [1, 0, 0, 0], [1, 0, 0, 0]),
-            State::new(0, [0, 0, 0, 0], [1, 0, 0, 0]).next_state(),
-        );
-        assert_eq!(
-            State::new(3, [9, 6, 4, 2], [4, 3, 2, 1]),
-            State::new(1, [1, 0, 0, 0], [4, 3, 2, 1])
-                .next_state()
-                .next_state(),
-        );
+    fn check_blueprint_geodes_2nd() {
+        let input = "Blueprint 2: \
+            Each ore robot costs 2 ore. \
+            Each clay robot costs 3 ore. \
+            Each obsidian robot costs 3 ore and 8 clay. \
+            Each geode robot costs 3 ore and 12 obsidian.";
+        let blueprint = Blueprint::try_from(input).expect("Failed to parse blueprint");
+        assert_eq!(12, blueprint.geodes(24));
     }
 
     #[test]
     fn check_part1() {
-        assert_eq!(12, part1(parse(INPUT)));
+        assert_eq!(33, part1(parse(INPUT)));
     }
 
     #[ignore]
