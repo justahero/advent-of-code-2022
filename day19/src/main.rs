@@ -177,6 +177,8 @@ impl Blueprint {
 
         while let Some(state) = states.pop_front() {
             best_geodes = max(best_geodes, state.ore(Mineral::Geode));
+
+            // simple heuristc that works for limited number of minutes
             if state.ore(Mineral::Geode) < best_geodes - 2 || visited_states.contains(&state) {
                 continue;
             }
@@ -188,27 +190,29 @@ impl Blueprint {
 
             visited_states.insert(state.clone());
 
-            // Check if there is anything that can be built, from most expensive to cheapest
+            // Check if there is anything that can be built
             if state.can_build(self.costs(Mineral::Geode)) {
                 states.push_back(state.build(self.costs(Mineral::Geode), Mineral::Geode));
-            }
-
-            if state.can_build(self.costs(Mineral::Ore)) && state.robot(Mineral::Ore) < max_ores {
-                states.push_back(state.build(self.costs(Mineral::Ore), Mineral::Ore));
-            }
-
-            if state.can_build(self.costs(Mineral::Clay)) {
-                states.push_back(state.build(self.costs(Mineral::Clay), Mineral::Clay));
             }
 
             if state.can_build(self.costs(Mineral::Obsidian)) {
                 states.push_back(state.build(self.costs(Mineral::Obsidian), Mineral::Obsidian));
             }
 
-            // otherwise continue to dig with current robots
-            let mut next_state = state.clone();
-            next_state.dig();
-            states.push_back(next_state);
+            if state.can_build(self.costs(Mineral::Clay)) {
+                states.push_back(state.build(self.costs(Mineral::Clay), Mineral::Clay));
+            }
+
+            if state.can_build(self.costs(Mineral::Ore)) && state.robot(Mineral::Ore) < max_ores {
+                states.push_back(state.build(self.costs(Mineral::Ore), Mineral::Ore));
+            }
+
+            // only when we have limited resources and nothing can be built allow robots to dig
+            if state.robot(Mineral::Ore) < max_ores {
+                let mut next_state = state.clone();
+                next_state.dig();
+                states.push_back(next_state);
+            }
         }
 
         best_geodes
