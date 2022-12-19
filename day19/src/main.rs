@@ -1,6 +1,9 @@
 //! Day 19: Not Enough Minerals
 
-use std::{collections::{HashSet, VecDeque}, cmp::max};
+use std::{
+    cmp::max,
+    collections::{HashSet, VecDeque},
+};
 
 use anyhow::anyhow;
 
@@ -8,6 +11,7 @@ use itertools::Itertools;
 
 peg::parser! {
     /// Parses a blueprint in the following format. The format is the same for all.
+    /// The input is a single line, the given example is split for readability only.
     ///
     /// Blueprint 1:
     ///   Each ore robot costs 3 ore.
@@ -79,6 +83,7 @@ impl State {
             && self.ores[3] >= costs[3]
     }
 
+    /// Reduces the amounts of minerals by spending the given costs
     pub fn spend(&mut self, costs: &[i32; 4]) {
         self.ores[0] -= costs[0];
         self.ores[1] -= costs[1];
@@ -86,6 +91,7 @@ impl State {
         self.ores[3] -= costs[3];
     }
 
+    /// Advances the state by one, all robots dig for their material
     pub fn dig(&mut self) {
         self.ores[0] += self.robots[0];
         self.ores[1] += self.robots[1];
@@ -110,7 +116,7 @@ impl State {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct Blueprint {
     id: u32,
     robot_costs: [[i32; 4]; 4],
@@ -182,7 +188,8 @@ impl Blueprint {
                 *next_state.robot_mut(Mineral::Geode) += 1;
                 states.push_back(next_state);
             } else {
-                if state.can_build(self.costs(Mineral::Ore)) && state.robot(Mineral::Ore) < max_ores {
+                if state.can_build(self.costs(Mineral::Ore)) && state.robot(Mineral::Ore) < max_ores
+                {
                     let mut next_state = state.clone();
                     next_state.spend(self.costs(Mineral::Ore));
                     next_state.dig();
@@ -234,11 +241,18 @@ impl TryFrom<&str> for Blueprint {
 }
 
 fn part1(blueprints: Vec<Blueprint>) -> u32 {
-    let minutes = 24;
     blueprints
         .iter()
-        .map(|blueprint| blueprint.geodes(minutes) as u32 * blueprint.id() as u32)
+        .map(|blueprint| blueprint.geodes(24) as u32 * blueprint.id() as u32)
         .sum::<u32>()
+}
+
+fn part2(blueprints: Vec<Blueprint>) -> u32 {
+    blueprints
+        .iter()
+        .take(3)
+        .map(|blueprint| blueprint.geodes(32) as u32)
+        .product()
 }
 
 fn parse(input: &str) -> Vec<Blueprint> {
@@ -251,9 +265,8 @@ fn parse(input: &str) -> Vec<Blueprint> {
 
 fn main() {
     let blueprints = parse(include_str!("input.txt"));
-    let result = part1(blueprints);
-    assert!(result > 787);
-    println!("Part 1: {}", result);
+    println!("Part 1: {}", part1(blueprints.clone()));
+    println!("Part 2: {}", part2(blueprints.clone()));
 }
 
 #[cfg(test)]
@@ -288,6 +301,7 @@ mod tests {
             Each geode robot costs 2 ore and 7 obsidian.";
         let blueprint = Blueprint::try_from(input).expect("Failed to parse blueprint");
         assert_eq!(9, blueprint.geodes(24));
+        assert_eq!(56, blueprint.geodes(32));
     }
 
     #[test]
@@ -299,16 +313,11 @@ mod tests {
             Each geode robot costs 3 ore and 12 obsidian.";
         let blueprint = Blueprint::try_from(input).expect("Failed to parse blueprint");
         assert_eq!(12, blueprint.geodes(24));
+        assert_eq!(62, blueprint.geodes(32));
     }
 
     #[test]
     fn check_part1() {
         assert_eq!(33, part1(parse(INPUT)));
-    }
-
-    #[ignore]
-    #[test]
-    fn check_part2() {
-        // assert_eq!(58, part2(parse(INPUT)));
     }
 }
