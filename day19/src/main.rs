@@ -193,8 +193,7 @@ impl Blueprint {
                 states.push_back(state.build(self.costs(Mineral::Geode), Mineral::Geode));
             }
 
-            if state.can_build(self.costs(Mineral::Ore)) && state.robot(Mineral::Ore) < max_ores
-            {
+            if state.can_build(self.costs(Mineral::Ore)) && state.robot(Mineral::Ore) < max_ores {
                 states.push_back(state.build(self.costs(Mineral::Ore), Mineral::Ore));
             }
 
