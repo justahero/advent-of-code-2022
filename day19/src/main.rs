@@ -57,6 +57,15 @@ impl Blueprint {
             geode,
         }
     }
+
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+
+    /// Calculates the optimal number of geodes that can be opened by given number of minutes
+    pub fn geodes(&self, minutes: u32) -> u32 {
+        0
+    }
 }
 
 impl TryFrom<&str> for Blueprint {
@@ -67,8 +76,13 @@ impl TryFrom<&str> for Blueprint {
     }
 }
 
-fn part1(blueprints: Vec<Blueprint>) -> usize {
-    0
+fn part1(blueprints: Vec<Blueprint>) -> u32 {
+    let minutes = 24;
+    blueprints
+        .iter()
+        .map(|blueprint| blueprint.geodes(minutes) * blueprint.id())
+        .max()
+        .expect("Failed to get max value")
 }
 
 fn parse(input: &str) -> Vec<Blueprint> {
