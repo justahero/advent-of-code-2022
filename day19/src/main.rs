@@ -83,12 +83,25 @@ impl State {
             && self.ores[3] >= costs[3]
     }
 
-    /// Reduces the amounts of minerals by spending the given costs
-    pub fn spend(&mut self, costs: &[i32; 4]) {
-        self.ores[0] -= costs[0];
-        self.ores[1] -= costs[1];
-        self.ores[2] -= costs[2];
-        self.ores[3] -= costs[3];
+    /// Advances the state
+    ///
+    /// * first the costs are spent
+    /// * then all robots dig their resources, time increases
+    /// * add the robot
+    pub fn build(&self, costs: &[i32; 4], robot: Mineral) -> Self {
+        let ores = [
+            self.ores[0] - costs[0] + self.robots[0],
+            self.ores[1] - costs[1] + self.robots[1],
+            self.ores[2] - costs[2] + self.robots[2],
+            self.ores[3] - costs[3] + self.robots[3],
+        ];
+        let mut robots = self.robots.clone();
+        robots[robot as usize] += 1;
+        Self {
+            ores,
+            robots,
+            time: self.time + 1,
+        }
     }
 
     /// Advances the state by one, all robots dig for their material
@@ -103,11 +116,6 @@ impl State {
     #[inline]
     pub fn ore(&self, mineral: Mineral) -> i32 {
         self.ores[mineral as usize]
-    }
-
-    #[inline]
-    pub fn robot_mut(&mut self, mineral: Mineral) -> &mut i32 {
-        &mut self.robots[mineral as usize]
     }
 
     #[inline]
@@ -155,7 +163,7 @@ impl Blueprint {
     ///   Each geode robot costs 3 ore and 8 obsidian.
     ///
     pub fn geodes(&self, minutes: u16) -> i32 {
-        println!("-- Blueprint {}", self.id);
+        println!("Blueprint: {}", self.id());
 
         let state = State::default();
         let mut best_geodes = 0;
@@ -169,7 +177,7 @@ impl Blueprint {
 
         while let Some(state) = states.pop_front() {
             best_geodes = max(best_geodes, state.ore(Mineral::Geode));
-            if state.ore(Mineral::Geode) < best_geodes - 1 || visited_states.contains(&state) {
+            if state.ore(Mineral::Geode) < best_geodes - 2 || visited_states.contains(&state) {
                 continue;
             }
 
@@ -182,36 +190,20 @@ impl Blueprint {
 
             // Check if there is anything that can be built, from most expensive to cheapest
             if state.can_build(self.costs(Mineral::Geode)) {
-                let mut next_state = state.clone();
-                next_state.spend(self.costs(Mineral::Geode));
-                next_state.dig();
-                *next_state.robot_mut(Mineral::Geode) += 1;
-                states.push_back(next_state);
-            } else {
-                if state.can_build(self.costs(Mineral::Ore)) && state.robot(Mineral::Ore) < max_ores
-                {
-                    let mut next_state = state.clone();
-                    next_state.spend(self.costs(Mineral::Ore));
-                    next_state.dig();
-                    *next_state.robot_mut(Mineral::Ore) += 1;
-                    states.push_back(next_state);
-                }
+                states.push_back(state.build(self.costs(Mineral::Geode), Mineral::Geode));
+            }
 
-                if state.can_build(self.costs(Mineral::Clay)) {
-                    let mut next_state = state.clone();
-                    next_state.spend(self.costs(Mineral::Clay));
-                    next_state.dig();
-                    *next_state.robot_mut(Mineral::Clay) += 1;
-                    states.push_back(next_state);
-                }
+            if state.can_build(self.costs(Mineral::Ore)) && state.robot(Mineral::Ore) < max_ores
+            {
+                states.push_back(state.build(self.costs(Mineral::Ore), Mineral::Ore));
+            }
 
-                if state.can_build(self.costs(Mineral::Obsidian)) {
-                    let mut next_state = state.clone();
-                    next_state.spend(self.costs(Mineral::Obsidian));
-                    next_state.dig();
-                    *next_state.robot_mut(Mineral::Obsidian) += 1;
-                    states.push_back(next_state);
-                }
+            if state.can_build(self.costs(Mineral::Clay)) {
+                states.push_back(state.build(self.costs(Mineral::Clay), Mineral::Clay));
+            }
+
+            if state.can_build(self.costs(Mineral::Obsidian)) {
+                states.push_back(state.build(self.costs(Mineral::Obsidian), Mineral::Obsidian));
             }
 
             // otherwise continue to dig with current robots
@@ -219,8 +211,6 @@ impl Blueprint {
             next_state.dig();
             states.push_back(next_state);
         }
-
-        println!("  ... geodes: {}", best_geodes);
 
         best_geodes
     }
