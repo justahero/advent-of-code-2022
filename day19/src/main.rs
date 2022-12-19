@@ -1,9 +1,6 @@
 //! Day 19: Not Enough Minerals
 
-use std::{
-    collections::{HashSet, VecDeque},
-    ops::Index,
-};
+use std::collections::{HashSet, VecDeque};
 
 use anyhow::anyhow;
 
@@ -45,7 +42,7 @@ peg::parser! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 enum Mineral {
     Ore = 0,
@@ -75,6 +72,10 @@ impl Default for State {
 }
 
 impl State {
+    pub fn new(time: u16, ores: [u16; 4], robots: [u16; 4]) -> Self {
+        Self { robots, ores, time }
+    }
+
     pub fn next_state(&self) -> Self {
         let ores = [
             self.ores[0] + self.robots[0],
@@ -139,6 +140,13 @@ impl Blueprint {
     ///   Each geode robot costs 3 ore and 8 obsidian.
     ///
     pub fn geodes(&self, minutes: u16) -> u32 {
+        const ORES: [Mineral; 4] = [
+            Mineral::Geode,
+            Mineral::Obsidian,
+            Mineral::Clay,
+            Mineral::Ore,
+        ];
+
         println!("-- Blueprint {}", self.id);
 
         // beginning state, one "ore robot", no ores
@@ -157,15 +165,25 @@ impl Blueprint {
             visited_states.insert(state.clone());
 
             // Check if there is anything that can be built, from most expensive to cheapest
-            let ores = [
-                Mineral::Geode,
-                Mineral::Obsidian,
-                Mineral::Clay,
-                Mineral::Ore,
-            ];
+            ORES.iter()
+                .filter_map(|mineral| {
+                    let costs = self.costs(*mineral);
+
+                    Some(1)
+                })
+                .inspect(|result| println!("RESULT: {:?}", result));
+            // .for_each(|result| states.push_back(result));
+
+            // otherwise continue to dig with current robots
+            states.push_back(state.next_state());
         }
 
         0
+    }
+
+    fn costs(&self, mineral: Mineral) -> &[u16; 4] {
+        let index = mineral as usize;
+        &self.robot_costs[index]
     }
 }
 
@@ -231,6 +249,18 @@ mod tests {
             Each geode robot costs 2 ore and 7 obsidian.";
         let blueprint = Blueprint::try_from(input).expect("Failed to parse blueprint");
         assert_eq!(9, blueprint.geodes(24));
+    }
+
+    #[test]
+    fn advance_next_state() {
+        assert_eq!(
+            State::new(1, [1, 0, 0, 0], [1, 0, 0, 0]),
+            State::new(0, [0, 0, 0, 0], [1, 0, 0, 0]).next_state(),
+        );
+        assert_eq!(
+            State::new(3, [9, 6, 4, 2], [4, 3, 2, 1]),
+            State::new(1, [1, 0, 0, 0], [4, 3, 2, 1]).next_state().next_state(),
+        );
     }
 
     #[test]
