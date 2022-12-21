@@ -3,52 +3,76 @@
 use std::collections::HashMap;
 
 peg::parser! {
-    /// Parses monkey operations
+    /// Parses monkey instructions
     grammar line_parser() for str {
         rule name() -> String
             = name:$(['a'..='z']+) { name.to_string() }
 
-        rule number() -> i32
+        rule number() -> i64
             = n:$(['0'..='9']+) {? n.parse().or(Err("Failed to parse number")) }
 
-        rule yell() -> Operation
-            = n:number() { Operation::Yell(n) }
+        rule yell() -> Instruction
+            = n:number() { Instruction::Yell(n) }
 
-        rule add() -> Operation
-            = l:name() " + " r:name() { Operation::Add(l.into(), r.into()) }
+        rule op() -> Op
+            = op:$("+" / "*" / "/" / "-") { op.into() }
 
-        rule div() -> Operation
-            = l:name() " / " r:name() { Operation::Div(l.into(), r.into()) }
+        rule operation() -> Instruction
+            = l:name() " " op:op() " " r:name() { Instruction::operation(op, l, r) }
 
-        rule mul() -> Operation
-            = l:name() " * " r:name() { Operation::Mul(l.into(), r.into()) }
+        rule instruction() -> Instruction
+            = op:(yell() / operation()) { op }
 
-        rule sub() -> Operation
-            = l:name() " - " r:name() { Operation::Sub(l.into(), r.into()) }
+        pub(crate) rule monkey() -> (String, Instruction)
+            = name:name() ": " op:instruction() { (name, op) }
+    }
+}
 
-        rule operation() -> Operation
-            = op:(yell() / add() / div() / mul() / sub()) { op }
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Op {
+    Add,
+    Mul,
+    Div,
+    Sub,
+}
 
-        pub(crate) rule monkey() -> (String, Operation)
-            = name:name() ": " op:operation() { (name, op) }
+impl From<&str> for Op {
+    fn from(input: &str) -> Self {
+        match input {
+            "+" => Op::Add,
+            "*" => Op::Mul,
+            "/" => Op::Div,
+            "-" => Op::Sub,
+            _ => panic!("Unsupported op '{}' found", input),
+        }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-enum Operation {
-    Yell(i32),
-    Add(String, String),
-    Div(String, String),
-    Mul(String, String),
-    Sub(String, String),
+enum Instruction {
+    Yell(i64),
+    Operation(String, Op, String),
 }
 
-fn part1(monkeys: HashMap<String, Operation>) -> i64 {
+impl Instruction {
+    pub fn operation(op: Op, left: String, right: String) -> Self {
+        Self::Operation(left, op, right)
+    }
+
+    pub fn evaluate(&self, monkeys: HashMap<String, Instruction>) -> i64 {
+        match self {
+            Instruction::Yell(n) => *n,
+            Instruction::Operation(l, op, r) => todo!(),
+        }
+    }
+}
+
+fn part1(monkeys: HashMap<String, Instruction>) -> i64 {
     0
 }
 
 /// Parses the string, returns a map of monkey id to operation
-fn parse(input: &str) -> HashMap<String, Operation> {
+fn parse(input: &str) -> HashMap<String, Instruction> {
     input
         .lines()
         .map(str::trim)
@@ -87,13 +111,16 @@ mod tests {
     #[test]
     fn check_parser() {
         assert_eq!(
-            Ok(("root".into(), Operation::Add("pppw".into(), "sjmn".into()))),
+            Ok((
+                "root".into(),
+                Instruction::Operation("pppw".into(), Op::Add, "sjmn".into())
+            )),
             line_parser::monkey("root: pppw + sjmn"),
         );
     }
 
     #[test]
     fn check_part1() {
-        // assert_eq!(3, part1(parse(INPUT)));
+        assert_eq!(152, part1(parse(INPUT)));
     }
 }
