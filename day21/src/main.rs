@@ -1,12 +1,14 @@
 //! Day 20: Monkey Math
 
 use anyhow::anyhow;
-use petgraph::{prelude::DiGraphMap, visit::Walker};
-
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt::Display,
+use petgraph::{
+    algo::dijkstra,
+    dot::{Config, Dot},
+    prelude::DiGraphMap,
+    visit::Walker,
 };
+
+use std::{collections::BTreeMap, fmt::Display};
 
 type MonkeyGraph = DiGraphMap<i32, ()>;
 
@@ -141,9 +143,33 @@ fn part2(monkeys: Vec<Monkey>, graph: MonkeyGraph) -> anyhow::Result<i64> {
     // Find chain of instructions from root to "humn", determine the value of the other
     // branch in root, then invert all instructions down (with value) to "humn", then evaluate
     // ignore sub-branch below "humn"
+    // println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
 
     // "humn" as in human
-    // Find the instructions chain from root to "humn"
+    let human_index = monkeys
+        .iter()
+        .position(|monkey| monkey.name == "humn")
+        .ok_or(anyhow!("Failed to find human"))?;
+
+    let root_index = monkeys
+        .iter()
+        .position(|monkey| monkey.name == "root")
+        .ok_or(anyhow!("Failed to find root"))?;
+
+    println!("Human: {}, Root: {}", human_index, root_index);
+
+    // Build another graph
+    let path = dijkstra::dijkstra(&graph, human_index as i32, Some(root_index as i32), |_| 1);
+    println!("PATH: {:?}", path);
+
+    let graph = path
+        .iter()
+        .fold(MonkeyGraph::new(), |mut graph, (node_id, _cost)| {
+            let monkey = &monkeys[*node_id as usize];
+            println!("Monkey: {:?}", monkey);
+            graph
+        });
+    println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
 
     Ok(0)
 }
