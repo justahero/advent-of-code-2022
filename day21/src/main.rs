@@ -59,16 +59,26 @@ impl Instruction {
         Self::Operation(left, op, right)
     }
 
-    pub fn evaluate(&self, monkeys: HashMap<String, Instruction>) -> i64 {
+    pub fn evaluate(&self, monkeys: &HashMap<String, Instruction>) -> i64 {
         match self {
             Instruction::Yell(n) => *n,
-            Instruction::Operation(l, op, r) => todo!(),
+            Instruction::Operation(left, op, right) => {
+                let left = monkeys.get(left).unwrap();
+                let right = monkeys.get(right).unwrap();
+                match op {
+                    Op::Add => left.evaluate(monkeys) + right.evaluate(monkeys),
+                    Op::Mul => left.evaluate(monkeys) * right.evaluate(monkeys),
+                    Op::Div => left.evaluate(monkeys) / right.evaluate(monkeys),
+                    Op::Sub => left.evaluate(monkeys) - right.evaluate(monkeys),
+                }
+            }
         }
     }
 }
 
 fn part1(monkeys: HashMap<String, Instruction>) -> i64 {
-    0
+    let root = monkeys.get("root").unwrap();
+    root.evaluate(&monkeys)
 }
 
 /// Parses the string, returns a map of monkey id to operation
@@ -82,8 +92,8 @@ fn parse(input: &str) -> HashMap<String, Instruction> {
 }
 
 fn main() {
-    let encrypted_file = parse(include_str!("input.txt"));
-    // println!("Part 1: {}", part1(encrypted_file.clone()));
+    let monkeys = parse(include_str!("input.txt"));
+    println!("Part 1: {}", part1(monkeys));
 }
 
 #[cfg(test)]
