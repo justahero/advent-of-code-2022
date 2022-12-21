@@ -1,8 +1,11 @@
 //! Day 20: Monkey Math
 
 use anyhow::anyhow;
+use petgraph::prelude::DiGraphMap;
 
 use std::{collections::HashMap, fmt::Display};
+
+type MonkeyGraph = DiGraphMap<i32, ()>;
 
 peg::parser! {
     /// Parses monkey instructions
@@ -77,6 +80,18 @@ impl Op {
     }
 }
 
+#[derive(Debug, Clone)]
+struct Monkey {
+    name: String,
+    instruction: Instruction,
+}
+
+impl Monkey {
+    pub fn new(name: String, instruction: Instruction) -> Self {
+        Self { name, instruction }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Instruction {
     Yell(i64),
@@ -114,109 +129,63 @@ impl Instruction {
             }
         }
     }
-
-    /// Determine the chain of this instruction to the root
-    pub fn chain(
-        start: &str,
-        monkeys: &HashMap<String, Instruction>,
-    ) -> anyhow::Result<Vec<(String, Instruction)>> {
-        let mut start = start.to_string();
-        let mut chain = vec![];
-
-        loop {
-            let result = monkeys
-                .iter()
-                .find(|&(_name, instruction)| match instruction {
-                    Instruction::Operation(left, _, right) => left == &start || right == &start,
-                    _ => false,
-                });
-
-            if let Some((parent, instruction)) = result {
-                start = parent.clone();
-                chain.push((parent.clone(), instruction.clone()));
-            } else {
-                break;
-            }
-        }
-
-        Ok(chain)
-    }
 }
 
-fn part1(monkeys: HashMap<String, Instruction>) -> anyhow::Result<i64> {
-    let root = monkeys.get("root").ok_or(anyhow!("Failed to find root"))?;
-    root.evaluate(&monkeys)
+fn part1(monkeys: Vec<Monkey>, graph: MonkeyGraph) -> anyhow::Result<i64> {
+    // let root = graph..get("root").ok_or(anyhow!("Failed to find root"))?;
+    // root.evaluate(&graph)
+
+    todo!("")
 }
 
-fn part2(mut monkeys: HashMap<String, Instruction>) -> anyhow::Result<i64> {
+fn part2(monkeys: Vec<Monkey>, graph: MonkeyGraph) -> anyhow::Result<i64> {
     // Find chain of instructions from root to "humn", determine the value of the other
     // branch in root, then invert all instructions down (with value) to "humn", then evaluate
     // ignore sub-branch below "humn"
 
     // "humn" as in human
     // Find the instructions chain from root to "humn"
-    let chain = Instruction::chain("humn", &monkeys)?;
-    println!("CHAIN: {:?}", chain);
-
-    let (child, _) = chain
-        .iter()
-        .rev()
-        .nth(1)
-        .ok_or(anyhow!("Could not find root child"))?;
-    println!("CHILD: {}", child);
-
-    // Get the alternative branch
-    let other_child = match monkeys.get("root").ok_or(anyhow!("No root"))? {
-        Instruction::Operation(left, _, right) => {
-            if left == child {
-                println!("  Right: {}", right);
-                monkeys
-                    .get(right)
-                    .ok_or(anyhow!("Failed to get instruction"))?
-            } else {
-                println!("  Left: {}", left);
-                monkeys
-                    .get(left)
-                    .ok_or(anyhow!("Failed to get instruction"))?
-            }
-        }
-        _ => return Err(anyhow!("Root is not a tuple operation")),
-    };
-
-    let total = other_child.evaluate(&monkeys)?;
-    println!("Expected total: {}", total);
-
-    // Invert the chain of instructions from root to "humn"
-    for (name, instruction) in chain.iter() {
-        match instruction.invert() {
-            Instruction::Operation(left, op, right) => {
-                if left == *name {
-                    println!(":: {} {} {}", left, op, right);
-                } else {
-                    println!(":: {} {} {}", left, op, right);
-                }
-            }
-            Instruction::Yell(_) => todo!(),
-        }
-    }
 
     Ok(0)
 }
 
 /// Parses the string, returns a map of monkey id to operation
-fn parse(input: &str) -> HashMap<String, Instruction> {
-    input
+fn parse(input: &str) -> (Vec<Monkey>, MonkeyGraph) {
+    let monkeys = input
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
         .filter_map(|line| line_parser::monkey(line).ok())
-        .collect::<HashMap<_, _>>()
+        .map(|(monkey, instruction)| Monkey::new(monkey, instruction))
+        .collect::<Vec<_>>();
+
+    // Generate all edges
+    let edges = monkeys
+        .iter()
+        .enumerate()
+        .flat_map(|(index, monkey)| match &monkey.instruction {
+            Instruction::Operation(left, _op, right) => {
+                let left = monkeys
+                    .iter()
+                    .position(|monkey| monkey.name == *left)
+                    .unwrap() as i32;
+                let right = monkeys
+                    .iter()
+                    .position(|monkey| monkey.name == *right)
+                    .unwrap() as i32;
+                vec![(left, index as i32), (right, index as i32)]
+            }
+            Instruction::Yell(_value) => vec![],
+        })
+        .collect::<Vec<_>>();
+
+    (monkeys, MonkeyGraph::from_edges(edges))
 }
 
 fn main() -> anyhow::Result<()> {
-    let monkeys = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(monkeys.clone())?);
-    println!("Part 2: {}", part2(monkeys)?);
+    let (monkeys, graph) = parse(include_str!("input.txt"));
+    println!("Part 1: {}", part1(monkeys.clone(), graph.clone())?);
+    println!("Part 2: {}", part2(monkeys, graph)?);
 
     Ok(())
 }
@@ -256,11 +225,13 @@ mod tests {
 
     #[test]
     fn check_part1() {
-        assert_eq!(152, part1(parse(INPUT)).unwrap());
+        let (monkeys, graph) = parse(INPUT);
+        assert_eq!(152, part1(monkeys, graph).unwrap());
     }
 
     #[test]
     fn check_part2() {
-        assert_eq!(301, part2(parse(INPUT)).unwrap());
+        let (monkeys, graph) = parse(INPUT);
+        assert_eq!(301, part2(monkeys, graph).unwrap());
     }
 }
