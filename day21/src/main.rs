@@ -1,9 +1,12 @@
 //! Day 20: Monkey Math
 
 use anyhow::anyhow;
-use petgraph::prelude::DiGraphMap;
+use petgraph::{prelude::DiGraphMap, visit::Walker};
 
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Display,
+};
 
 type MonkeyGraph = DiGraphMap<i32, ()>;
 
@@ -39,7 +42,6 @@ pub enum Op {
     Mul,
     Div,
     Sub,
-    Equal,
 }
 
 impl Display for Op {
@@ -49,7 +51,6 @@ impl Display for Op {
             Op::Mul => "*",
             Op::Div => "/",
             Op::Sub => "-",
-            Op::Equal => "=",
         };
         write!(f, "{}", s)
     }
@@ -62,7 +63,6 @@ impl From<&str> for Op {
             "*" => Op::Mul,
             "/" => Op::Div,
             "-" => Op::Sub,
-            "=" => Op::Equal,
             _ => panic!("Unsupported op '{}' found", input),
         }
     }
@@ -75,7 +75,6 @@ impl Op {
             Op::Mul => Op::Div,
             Op::Div => Op::Mul,
             Op::Sub => Op::Add,
-            Op::Equal => Op::Equal,
         }
     }
 }
@@ -102,40 +101,40 @@ impl Instruction {
     pub fn operation(op: Op, left: String, right: String) -> Self {
         Self::Operation(left, op, right)
     }
-
-    pub fn evaluate(&self, monkeys: &HashMap<String, Instruction>) -> anyhow::Result<i64> {
-        match self {
-            Instruction::Yell(n) => Ok(*n),
-            Instruction::Operation(left, op, right) => {
-                let left = monkeys.get(left).ok_or(anyhow!("Monkey not found"))?;
-                let right = monkeys.get(right).ok_or(anyhow!("Monkey not found"))?;
-                let result = match op {
-                    Op::Add => left.evaluate(monkeys)? + right.evaluate(monkeys)?,
-                    Op::Mul => left.evaluate(monkeys)? * right.evaluate(monkeys)?,
-                    Op::Div => left.evaluate(monkeys)? / right.evaluate(monkeys)?,
-                    Op::Sub => left.evaluate(monkeys)? - right.evaluate(monkeys)?,
-                    Op::Equal => 0,
-                };
-                Ok(result)
-            }
-        }
-    }
-
-    pub fn invert(&self) -> Instruction {
-        match self {
-            Instruction::Yell(value) => Instruction::Yell(-value),
-            Instruction::Operation(left, op, right) => {
-                Instruction::Operation(left.to_string(), op.invert(), right.to_string())
-            }
-        }
-    }
 }
 
 fn part1(monkeys: Vec<Monkey>, graph: MonkeyGraph) -> anyhow::Result<i64> {
-    // let root = graph..get("root").ok_or(anyhow!("Failed to find root"))?;
-    // root.evaluate(&graph)
+    let topological = petgraph::visit::Topo::new(&graph);
+    let mut cache = BTreeMap::<&str, i64>::new();
 
-    todo!("")
+    for monkey_id in topological.iter(&graph) {
+        let Monkey { name, instruction } = monkeys.get(monkey_id as usize).unwrap();
+        match instruction {
+            Instruction::Yell(value) => {
+                cache.insert(name, *value);
+            }
+            Instruction::Operation(left, op, right) => {
+                let left = cache.get(&left.as_ref()).unwrap();
+                let right = cache.get(&right.as_ref()).unwrap();
+                match op {
+                    Op::Add => {
+                        cache.insert(name, left + right);
+                    }
+                    Op::Mul => {
+                        cache.insert(name, left * right);
+                    }
+                    Op::Div => {
+                        cache.insert(name, left / right);
+                    }
+                    Op::Sub => {
+                        cache.insert(name, left - right);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(*cache.get("root").unwrap())
 }
 
 fn part2(monkeys: Vec<Monkey>, graph: MonkeyGraph) -> anyhow::Result<i64> {
