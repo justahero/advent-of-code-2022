@@ -1,8 +1,6 @@
-//! Day 20: Monkey Math
+//! Day 21: Monkey Math
 
-use anyhow::anyhow;
-
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 peg::parser! {
     /// Parses monkey instructions
@@ -38,6 +36,18 @@ pub enum Op {
     Sub,
 }
 
+impl Display for Op {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Op::Add => "+",
+            Op::Mul => "*",
+            Op::Div => "/",
+            Op::Sub => "-",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 impl From<&str> for Op {
     fn from(input: &str) -> Self {
         match input {
@@ -61,27 +71,92 @@ impl Instruction {
         Self::Operation(left, op, right)
     }
 
-    pub fn evaluate(&self, monkeys: &HashMap<String, Instruction>) -> anyhow::Result<i64> {
+    pub fn evaluate(&self, monkeys: &HashMap<String, Instruction>) -> i64 {
         match self {
-            Instruction::Yell(n) => Ok(*n),
+            Instruction::Yell(n) => *n,
             Instruction::Operation(left, op, right) => {
-                let left = monkeys.get(left).unwrap();
-                let right = monkeys.get(right).unwrap();
+                let (left, right) = (&monkeys[left], &monkeys[right]);
                 let result = match op {
-                    Op::Add => left.evaluate(monkeys)? + right.evaluate(monkeys)?,
-                    Op::Mul => left.evaluate(monkeys)? * right.evaluate(monkeys)?,
-                    Op::Div => left.evaluate(monkeys)? / right.evaluate(monkeys)?,
-                    Op::Sub => left.evaluate(monkeys)? - right.evaluate(monkeys)?,
+                    Op::Add => left.evaluate(monkeys) + right.evaluate(monkeys),
+                    Op::Mul => left.evaluate(monkeys) * right.evaluate(monkeys),
+                    Op::Div => left.evaluate(monkeys) / right.evaluate(monkeys),
+                    Op::Sub => left.evaluate(monkeys) - right.evaluate(monkeys),
                 };
-                Ok(result)
+                result
             }
         }
     }
 }
 
-fn part1(monkeys: HashMap<String, Instruction>) -> anyhow::Result<i64> {
-    let root = monkeys.get("root").ok_or(anyhow!("Failed to find root"))?;
-    root.evaluate(&monkeys)
+/// Graph traversal function
+fn traverse(name: &str, value: i64, monkeys: &HashMap<String, Instruction>) -> i64 {
+    if name == "humn" {
+        return value;
+    }
+
+    match &monkeys[name] {
+        Instruction::Yell(n) => *n,
+        Instruction::Operation(left, op, right) => {
+            let (next_monkey, new_value) = if is_human_branch(left, monkeys) {
+                // invert calculation for human branch
+                let right_total = monkeys[right].evaluate(&monkeys);
+                let new_value = match op {
+                    Op::Add => value - right_total,
+                    Op::Mul => value / right_total,
+                    Op::Div => value * right_total,
+                    Op::Sub => value + right_total,
+                };
+                (left, new_value)
+            } else {
+                // normal evalulation
+                let left_total = monkeys[left].evaluate(&monkeys);
+                let new_value = match op {
+                    Op::Add => value - left_total,
+                    Op::Sub => left_total - value,
+                    Op::Mul => value / left_total,
+                    Op::Div => left_total / value,
+                };
+                (right, new_value)
+            };
+
+            traverse(next_monkey, new_value, monkeys)
+        }
+    }
+}
+
+/// Helper function to check if this node is part of the "human" branch
+fn is_human_branch(name: &str, monkeys: &HashMap<String, Instruction>) -> bool {
+    if name == "humn" {
+        return true;
+    }
+    match &monkeys[name] {
+        Instruction::Yell(_) => false,
+        Instruction::Operation(left, _, right) => {
+            is_human_branch(left, monkeys) || is_human_branch(right, monkeys)
+        }
+    }
+}
+
+fn part1(monkeys: &HashMap<String, Instruction>) -> i64 {
+    monkeys["root"].evaluate(&monkeys)
+}
+
+/// Find chain of instructions from root to "humn", determine the value of the other
+/// branch in root, then invert all instructions down (with value) to "humn", then evaluate
+/// ignore sub-branch below "humn"
+fn part2(monkeys: &HashMap<String, Instruction>) -> i64 {
+    if let Instruction::Operation(left, _, right) = &monkeys["root"] {
+        // check which branch needs to get calculated for root
+        let (name, root_total) = if is_human_branch(left, monkeys) {
+            (left, monkeys[right].evaluate(&monkeys))
+        } else {
+            (right, monkeys[left].evaluate(&monkeys))
+        };
+
+        traverse(name, root_total, monkeys)
+    } else {
+        panic!("Root is not an infix operation.");
+    }
 }
 
 /// Parses the string, returns a map of monkey id to operation
@@ -96,7 +171,8 @@ fn parse(input: &str) -> HashMap<String, Instruction> {
 
 fn main() -> anyhow::Result<()> {
     let monkeys = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(monkeys)?);
+    println!("Part 1: {}", part1(&monkeys));
+    println!("Part 2: {}", part2(&monkeys));
 
     Ok(())
 }
@@ -136,6 +212,11 @@ mod tests {
 
     #[test]
     fn check_part1() {
-        assert_eq!(152, part1(parse(INPUT)).unwrap());
+        assert_eq!(152, part1(&parse(INPUT)));
+    }
+
+    #[test]
+    fn check_part2() {
+        assert_eq!(301, part2(&parse(INPUT)));
     }
 }
