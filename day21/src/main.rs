@@ -1,5 +1,7 @@
 //! Day 20: Monkey Math
 
+use anyhow::anyhow;
+
 use std::collections::HashMap;
 
 peg::parser! {
@@ -59,25 +61,26 @@ impl Instruction {
         Self::Operation(left, op, right)
     }
 
-    pub fn evaluate(&self, monkeys: &HashMap<String, Instruction>) -> i64 {
+    pub fn evaluate(&self, monkeys: &HashMap<String, Instruction>) -> anyhow::Result<i64> {
         match self {
-            Instruction::Yell(n) => *n,
+            Instruction::Yell(n) => Ok(*n),
             Instruction::Operation(left, op, right) => {
                 let left = monkeys.get(left).unwrap();
                 let right = monkeys.get(right).unwrap();
-                match op {
-                    Op::Add => left.evaluate(monkeys) + right.evaluate(monkeys),
-                    Op::Mul => left.evaluate(monkeys) * right.evaluate(monkeys),
-                    Op::Div => left.evaluate(monkeys) / right.evaluate(monkeys),
-                    Op::Sub => left.evaluate(monkeys) - right.evaluate(monkeys),
-                }
+                let result = match op {
+                    Op::Add => left.evaluate(monkeys)? + right.evaluate(monkeys)?,
+                    Op::Mul => left.evaluate(monkeys)? * right.evaluate(monkeys)?,
+                    Op::Div => left.evaluate(monkeys)? / right.evaluate(monkeys)?,
+                    Op::Sub => left.evaluate(monkeys)? - right.evaluate(monkeys)?,
+                };
+                Ok(result)
             }
         }
     }
 }
 
-fn part1(monkeys: HashMap<String, Instruction>) -> i64 {
-    let root = monkeys.get("root").unwrap();
+fn part1(monkeys: HashMap<String, Instruction>) -> anyhow::Result<i64> {
+    let root = monkeys.get("root").ok_or(anyhow!("Failed to find root"))?;
     root.evaluate(&monkeys)
 }
 
@@ -91,9 +94,11 @@ fn parse(input: &str) -> HashMap<String, Instruction> {
         .collect::<HashMap<_, _>>()
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let monkeys = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(monkeys));
+    println!("Part 1: {}", part1(monkeys)?);
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -131,6 +136,6 @@ mod tests {
 
     #[test]
     fn check_part1() {
-        assert_eq!(152, part1(parse(INPUT)));
+        assert_eq!(152, part1(parse(INPUT)).unwrap());
     }
 }
