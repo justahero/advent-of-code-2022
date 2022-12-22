@@ -1,9 +1,6 @@
 //! Day 22: Monkey Map
 
-use std::{
-    collections::HashMap,
-    fmt::{Display, Formatter},
-};
+use std::fmt::{Display, Formatter};
 
 use itertools::Itertools;
 
