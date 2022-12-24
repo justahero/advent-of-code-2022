@@ -426,7 +426,7 @@ fn parse(input: &str, side: i32) -> (Board, Vec<MoveInput>) {
 
 fn main() {
     let (board, moves) = parse(include_str!("input.txt"), 50);
-    println!("Part 1: {}", part1(&board, &moves));
+    // println!("Part 1: {}", part1(&board, &moves));
 
     let result = part2(&board, &moves);
     assert!(110400 == result);
