@@ -257,10 +257,10 @@ impl BoardWrapper for Cuboid {
                 Dir::Down => 0,
             };
             let new_col = match new_dir {
-                Dir::Left => 49,
+                Dir::Left => 50,
                 Dir::Right => 0,
                 Dir::Up => i,
-                Dir::Down => 49 - i,
+                Dir::Down => 50 - i,
             };
 
             let new_pos = Pos::new(cube_col * side + new_col, cube_row * side + new_row);
@@ -426,7 +426,7 @@ fn parse(input: &str, side: i32) -> (Board, Vec<MoveInput>) {
 
 fn main() {
     let (board, moves) = parse(include_str!("input.txt"), 50);
-    // println!("Part 1: {}", part1(&board, &moves));
+    println!("Part 1: {}", part1(&board, &moves));
 
     let result = part2(&board, &moves);
     assert!(110400 == result);
