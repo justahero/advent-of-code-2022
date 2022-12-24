@@ -1,7 +1,6 @@
 //! Day 14: Regolith Reservoir
 
 use std::{
-    cmp::Ordering,
     collections::BTreeMap,
     fmt::{Display, Formatter},
 };
