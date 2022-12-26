@@ -73,8 +73,6 @@ struct Maze {
     height: i32,
     /// All tiles of the maze, outline is walls
     tiles: Vec<Tile>,
-    /// The list of current blizzards
-    blizzards: Vec<Blizzard>,
 }
 
 impl Maze {
@@ -90,15 +88,14 @@ impl Maze {
             width: 0,
             height: 0,
             tiles: Vec::new(),
-            blizzards: Vec::new(),
         }
     }
 
     /// Returns all unique blizzard formations possible.
-    pub fn all_blizzard_formations(&self) -> Vec<Vec<Blizzard>> {
+    pub fn get_blizzard_formations(&self, blizzards: Vec<Blizzard>) -> Vec<Vec<Blizzard>> {
         let lcm = num::integer::lcm(self.width - 2, self.height - 2);
 
-        let mut current = self.blizzards.clone();
+        let mut current = blizzards.clone();
         let mut blizzards = Vec::new();
 
         for _ in 0..lcm {
@@ -111,7 +108,7 @@ impl Maze {
     }
 
     /// Search the shortest path
-    pub fn shortest(&self) -> Option<u32> {
+    pub fn shortest(&self, blizzards: Vec<Blizzard>) -> Option<u32> {
         let directions = [
             Pos::new(0, 0),
             Pos::new(0, -1),
@@ -120,7 +117,7 @@ impl Maze {
             Pos::new(-1, 0),
         ];
 
-        let blizzards = self.all_blizzard_formations();
+        let blizzards = self.get_blizzard_formations(blizzards);
         let blizzards_len = blizzards.len();
 
         let mut time = 0usize;
@@ -156,11 +153,10 @@ impl Maze {
         }
     }
 
-    pub fn add_row(mut self, mut tiles: Vec<Tile>, mut blizzards: Vec<Blizzard>) -> Self {
+    pub fn add_row(mut self, mut tiles: Vec<Tile>) -> Self {
         self.height += 1;
         self.width = tiles.len() as i32;
         self.tiles.append(&mut tiles);
-        self.blizzards.append(&mut blizzards);
         self
     }
 
@@ -195,17 +191,19 @@ impl Maze {
 }
 
 /// Find the shortest path in the maze
-fn part1(maze: &Maze) -> u32 {
-    maze.shortest().expect("Failed to find path")
+fn part1(maze: &Maze, blizzards: Vec<Blizzard>) -> u32 {
+    maze.shortest(blizzards).expect("Failed to find path")
 }
 
-fn part2(maze: &Maze) -> u32 {
-    maze.shortest().expect("Failed to get path")
+fn part2(maze: &Maze, blizzards: Vec<Blizzard>) -> u32 {
+    maze.shortest(blizzards).expect("Failed to get path")
 }
 
 /// Parses the string, returns a map of monkey id to operation
-fn parse(input: &str) -> Maze {
-    input
+fn parse(input: &str) -> (Maze, Vec<Blizzard>) {
+    let mut all_blizzards = Vec::new();
+
+    let maze = input
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
@@ -227,16 +225,19 @@ fn parse(input: &str) -> Maze {
                     _ => (),
                 }
             }
-            maze.add_row(tiles, blizzards)
-        })
+            all_blizzards.append(&mut blizzards);
+            maze.add_row(tiles)
+        });
+
+    (maze, all_blizzards)
 }
 
 fn main() {
-    let maze = parse(include_str!("input.txt"));
-    let result = part1(&maze);
+    let (maze, blizzards) = parse(include_str!("input.txt"));
+    let result = part1(&maze, blizzards.clone());
     assert!(146 < result);
     println!("Part 1: {}", result);
-    println!("Part 2: {}", part2(&maze));
+    println!("Part 2: {}", part2(&maze, blizzards));
 }
 
 #[cfg(test)]
@@ -264,8 +265,8 @@ mod tests {
             #####.#
         "#;
 
-        let maze = parse(input);
-        let blizzards = maze.advance(&maze.blizzards);
+        let (maze, blizzards) = parse(input);
+        let blizzards = maze.advance(&blizzards);
 
         let expected = vec![
             Blizzard::new(Pos::new(3, 2), Direction::East),
@@ -277,12 +278,13 @@ mod tests {
 
     #[test]
     fn check_part1() {
-        assert_eq!(18, part1(&parse(INPUT)));
+        let (maze, blizzards) = parse(INPUT);
+        assert_eq!(18, part1(&maze, blizzards));
     }
 
-    #[ignore]
     #[test]
     fn check_part2() {
-        assert_eq!(54, part2(parse(INPUT)));
+        let (maze, blizzards) = parse(INPUT);
+        assert_eq!(54, part2(&maze, blizzards));
     }
 }
