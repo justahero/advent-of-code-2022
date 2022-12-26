@@ -106,6 +106,14 @@ impl Grid {
     pub fn neighbors(&self, pos: Pos) -> impl Iterator<Item = Pos> + '_ {
         Dir::DIRECTIONS.iter().cloned().map(move |dir| pos + dir)
     }
+
+    /// Determines the smallest rectangle where all elves fit in, return number of free tiles.
+    pub fn empty_tiles(&self) -> i64 {
+        let (min, max) = self.bounds();
+        let width = (max.x - min.x) as i64 + 1;
+        let height = (max.y - min.y) as i64 + 1;
+        width * height - self.elves.len() as i64
+    }
 }
 
 impl Display for Grid {
@@ -136,9 +144,12 @@ impl Display for Grid {
 /// ..##.
 /// .....
 /// ```
-fn advance(grid: &mut Grid, directions: &[Dir]) {
+///
+/// Returns true if an elf has moved.
+fn advance(grid: &mut Grid, directions: &[Dir]) -> bool {
     // Maps proposed position to elves, multiple elves may propose the same position
     let mut proposals: HashMap<Pos, Vec<Pos>> = HashMap::new();
+    let mut moved = false;
 
     // first phase each elf proposes a new position
     for elf in &grid.elves {
@@ -165,10 +176,13 @@ fn advance(grid: &mut Grid, directions: &[Dir]) {
     // movement phase
     for (next_pos, elves) in proposals {
         if elves.len() == 1 {
+            moved = true;
             grid.elves.remove(&elves[0]);
             grid.elves.insert(next_pos);
         }
     }
+
+    moved
 }
 
 fn part1(mut grid: Grid) -> i64 {
@@ -180,11 +194,20 @@ fn part1(mut grid: Grid) -> i64 {
     }
 
     // determine bounds of current arrangement
-    let (min, max) = grid.bounds();
+    grid.empty_tiles()
+}
 
-    let width = (max.x - min.x) as i64 + 1;
-    let height = (max.y - min.y) as i64 + 1;
-    width * height - grid.elves.len() as i64
+fn part2(mut grid: Grid) -> i64 {
+    let mut directions = vec![Dir::N, Dir::S, Dir::W, Dir::E];
+
+    for round in 1.. {
+        if !advance(&mut grid, &directions) {
+            return round;
+        }
+        directions.rotate_left(1);
+    }
+
+    i64::MAX
 }
 
 /// Parses the string, returns a map of monkey id to operation
@@ -209,7 +232,8 @@ fn parse(input: &str) -> Grid {
 
 fn main() {
     let grid = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(grid));
+    println!("Part 1: {}", part1(grid.clone()));
+    println!("Part 2: {}", part2(grid));
 }
 
 #[cfg(test)]
@@ -300,5 +324,10 @@ mod tests {
     #[test]
     fn check_part1() {
         assert_eq!(110, part1(parse(INPUT)));
+    }
+
+    #[test]
+    fn check_part2() {
+        assert_eq!(20, part2(parse(INPUT)));
     }
 }
