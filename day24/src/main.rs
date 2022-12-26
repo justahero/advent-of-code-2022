@@ -127,6 +127,8 @@ impl Maze {
         stack.push_back(state);
 
         while let Some(current) = stack.pop_front() {
+            // println!("CURRENT: {:?}", current);
+
             if current.pos == self.end() {
                 return current.time;
             }
@@ -156,6 +158,7 @@ impl Maze {
             // otherwise check all directions for possible moves
             for dir in Self::DIRECTIONS.iter() {
                 let next_pos = current.pos + *dir;
+
                 if self.get_tile(&next_pos) == Tile::Ground {
                     if next_blizzards
                         .iter()
@@ -184,8 +187,17 @@ impl Maze {
     }
 
     /// Advances all blizzards
-    fn advance(&self, blizzards: &[Blizzard]) -> Vec<Blizzard> {
-        Vec::new()
+    pub fn advance(&self, blizzards: &[Blizzard]) -> Vec<Blizzard> {
+        let mut result = Vec::new();
+
+        for Blizzard { pos, dir } in blizzards {
+            let next_pos = *pos + Self::DIRECTIONS[*dir as usize];
+            let x = (next_pos.x - 1).rem_euclid(self.width - 2) + 1;
+            let y = (next_pos.y - 1).rem_euclid(self.height - 2) + 1;
+            result.push(Blizzard::new(Pos::new(x, y), *dir));
+        }
+
+        result
     }
 
     fn get_tile(&self, pos: &Pos) -> Tile {
@@ -200,17 +212,18 @@ impl Maze {
     }
 
     fn end(&self) -> Pos {
-        Pos::new(self.width - 1, self.height)
+        Pos::new(self.width - 2, self.height - 1)
     }
 }
 
-fn part1(maze: Maze) -> i64 {
-    0
+/// Find the shortest path in the maze
+fn part1(maze: &Maze) -> u32 {
+    maze.shortest()
 }
 
 /// Parses the string, returns a map of monkey id to operation
 fn parse(input: &str) -> Maze {
-    let maze = input
+    input
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty())
@@ -233,16 +246,12 @@ fn parse(input: &str) -> Maze {
                 }
             }
             maze.add_row(tiles, blizzards)
-        });
-
-    println!("Hello");
-
-    maze
+        })
 }
 
 fn main() {
     let maze = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(maze));
+    println!("Part 1: {}", part1(&maze));
 }
 
 #[cfg(test)]
@@ -259,8 +268,31 @@ mod tests {
     ";
 
     #[test]
+    fn check_advance_blizzards() {
+        let input: &str = r#"
+            #.#####
+            #.....#
+            #.>...#
+            #.....#
+            #.....#
+            #...v.#
+            #####.#
+        "#;
+
+        let maze = parse(input);
+        let blizzards = maze.advance(&maze.blizzards);
+
+        let expected = vec![
+            Blizzard::new(Pos::new(3, 2), Direction::East),
+            Blizzard::new(Pos::new(4, 1), Direction::South),
+        ];
+
+        assert_eq!(expected, blizzards,);
+    }
+
+    #[test]
     fn check_part1() {
-        assert_eq!(18, part1(parse(INPUT)));
+        assert_eq!(18, part1(&parse(INPUT)));
     }
 
     #[ignore]
