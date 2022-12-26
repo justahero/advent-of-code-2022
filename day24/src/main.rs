@@ -2,6 +2,8 @@
 
 use std::collections::{HashMap, VecDeque};
 
+use itertools::Itertools;
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 #[repr(u8)]
 enum Direction {
@@ -78,14 +80,14 @@ struct Maze {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
-struct State {
+struct State<'a> {
     pos: Pos,
-    blizzards: Vec<Blizzard>,
+    blizzards: &'a Vec<Blizzard>,
     time: u32,
 }
 
-impl State {
-    pub fn new(pos: Pos, blizzards: Vec<Blizzard>, time: u32) -> Self {
+impl<'a> State<'a> {
+    pub fn new(pos: Pos, blizzards: &'a Vec<Blizzard>, time: u32) -> Self {
         Self {
             pos,
             blizzards,
@@ -111,36 +113,62 @@ impl Maze {
         }
     }
 
+    /// Calculates the least common mulitple of the dimensions
+    fn lcm(&self) -> i32 {
+        let field_size_x = self.width - 2;
+        let field_size_y = self.height - 2;
+
+        [
+            (field_size_x..).step_by(field_size_x as usize),
+            (field_size_y..).step_by(field_size_y as usize),
+        ]
+        .into_iter()
+        .kmerge()
+        .tuple_windows()
+        .find(|(a, b)| a == b)
+        .unwrap()
+        .0
+    }
+
+    /// Returns all unique blizzard formations possible.
+    pub fn all_blizzard_formations(&self) -> Vec<Vec<Blizzard>> {
+        let lcm = self.lcm();
+
+        let mut current = self.blizzards.clone();
+        let mut blizzards = Vec::new();
+
+        for _ in 0..lcm {
+            blizzards.push(current.clone());
+            let next_blizzards = self.advance(&current);
+            current = next_blizzards;
+        }
+
+        blizzards
+    }
+
     /// Search the shortest path
     pub fn shortest(&self) -> u32 {
+        let blizzards = self.all_blizzard_formations();
+        let blizzards_len = blizzards.len();
+
         let state = State {
             pos: self.start(),
-            blizzards: self.blizzards.clone(),
+            blizzards: &self.blizzards,
             time: 0,
         };
 
         let mut stack = VecDeque::new();
-
-        // keep all configurations of blizzards around
-        let mut cache: HashMap<u32, Vec<Blizzard>> = HashMap::new();
-
         stack.push_back(state);
 
         while let Some(current) = stack.pop_front() {
-            // println!("CURRENT: {:?}", current);
+            println!("CURRENT: {:?}", stack.len());
 
             if current.pos == self.end() {
                 return current.time;
             }
 
             // advance all blizzards by 1 minute, check if it was calculated before
-            let next_blizzards = if let Some(blizzards) = cache.get(&(current.time + 1)) {
-                blizzards.clone()
-            } else {
-                let blizzards = self.advance(&current.blizzards);
-                cache.insert(current.time + 1, blizzards.clone());
-                blizzards
-            };
+            let next_blizzards = &blizzards[(current.time as usize + 1).rem_euclid(blizzards_len)];
 
             // if possible wait on the current position
             if next_blizzards
@@ -148,11 +176,7 @@ impl Maze {
                 .find(|&blizzard| current.pos == blizzard.pos)
                 .is_none()
             {
-                stack.push_back(State::new(
-                    current.pos,
-                    next_blizzards.clone(),
-                    current.time + 1,
-                ));
+                stack.push_back(State::new(current.pos, next_blizzards, current.time + 1));
             }
 
             // otherwise check all directions for possible moves
@@ -162,12 +186,12 @@ impl Maze {
                 if self.get_tile(&next_pos) == Tile::Ground {
                     if next_blizzards
                         .iter()
-                        .find(|&blizzard| current.pos + *dir == blizzard.pos)
+                        .find(|&blizzard| next_pos == blizzard.pos)
                         .is_none()
                     {
                         stack.push_back(State::new(
-                            current.pos + *dir,
-                            next_blizzards.clone(),
+                            next_pos,
+                            next_blizzards,
                             current.time + 1,
                         ));
                     }
