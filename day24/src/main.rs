@@ -1,6 +1,6 @@
 //! Day 24: Unstable Diffusion
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashSet;
 
 use itertools::Itertools;
 
@@ -79,23 +79,6 @@ struct Maze {
     blizzards: Vec<Blizzard>,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct State<'a> {
-    pos: Pos,
-    blizzards: &'a Vec<Blizzard>,
-    time: u32,
-}
-
-impl<'a> State<'a> {
-    pub fn new(pos: Pos, blizzards: &'a Vec<Blizzard>, time: u32) -> Self {
-        Self {
-            pos,
-            blizzards,
-            time,
-        }
-    }
-}
-
 impl Maze {
     const DIRECTIONS: [Pos; 4] = [
         Pos::new(0, -1),
@@ -147,59 +130,49 @@ impl Maze {
     }
 
     /// Search the shortest path
-    pub fn shortest(&self) -> u32 {
+    pub fn shortest(&self) -> Option<u32> {
+        let directions = [
+            Pos::new(0, 0),
+            Pos::new(0, -1),
+            Pos::new(1, 0),
+            Pos::new(0, 1),
+            Pos::new(-1, 0),
+        ];
+
         let blizzards = self.all_blizzard_formations();
         let blizzards_len = blizzards.len();
 
-        let state = State {
-            pos: self.start(),
-            blizzards: &self.blizzards,
-            time: 0,
-        };
+        let mut time = 0usize;
+        let mut current_positions = HashSet::from([self.start()]);
 
-        let mut stack = VecDeque::new();
-        stack.push_back(state);
+        loop {
+            let mut next_positions: HashSet<Pos> = HashSet::new();
+            let next_blizzrds = &blizzards[(time + 1).rem_euclid(blizzards_len) as usize];
 
-        while let Some(current) = stack.pop_front() {
-            println!("CURRENT: {:?}", stack.len());
+            for pos in current_positions.into_iter() {
+                for dir in directions.iter() {
+                    let next_pos = pos + *dir;
+                    if self.get_tile(&next_pos) != Tile::Ground {
+                        continue;
+                    }
 
-            if current.pos == self.end() {
-                return current.time;
-            }
+                    if next_pos == self.end() {
+                        return Some(time as u32 + 1);
+                    }
 
-            // advance all blizzards by 1 minute, check if it was calculated before
-            let next_blizzards = &blizzards[(current.time as usize + 1).rem_euclid(blizzards_len)];
-
-            // if possible wait on the current position
-            if next_blizzards
-                .iter()
-                .find(|&blizzard| current.pos == blizzard.pos)
-                .is_none()
-            {
-                stack.push_back(State::new(current.pos, next_blizzards, current.time + 1));
-            }
-
-            // otherwise check all directions for possible moves
-            for dir in Self::DIRECTIONS.iter() {
-                let next_pos = current.pos + *dir;
-
-                if self.get_tile(&next_pos) == Tile::Ground {
-                    if next_blizzards
-                        .iter()
-                        .find(|&blizzard| next_pos == blizzard.pos)
-                        .is_none()
-                    {
-                        stack.push_back(State::new(
-                            next_pos,
-                            next_blizzards,
-                            current.time + 1,
-                        ));
+                    if next_blizzrds.iter().all(|b| b.pos != next_pos) {
+                        next_positions.insert(next_pos);
                     }
                 }
             }
-        }
 
-        0
+            current_positions = next_positions;
+            if current_positions.is_empty() {
+                current_positions.insert(self.start());
+            }
+
+            time += 1;
+        }
     }
 
     pub fn add_row(mut self, mut tiles: Vec<Tile>, mut blizzards: Vec<Blizzard>) -> Self {
@@ -242,7 +215,7 @@ impl Maze {
 
 /// Find the shortest path in the maze
 fn part1(maze: &Maze) -> u32 {
-    maze.shortest()
+    maze.shortest().expect("Failed to find path")
 }
 
 /// Parses the string, returns a map of monkey id to operation
@@ -275,7 +248,9 @@ fn parse(input: &str) -> Maze {
 
 fn main() {
     let maze = parse(include_str!("input.txt"));
-    println!("Part 1: {}", part1(&maze));
+    let result = part1(&maze);
+    assert!(146 < result);
+    println!("Part 1: {}", result);
 }
 
 #[cfg(test)]
