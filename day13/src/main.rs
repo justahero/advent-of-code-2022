@@ -1,3 +1,5 @@
+//! Day 12: Hill Climbing Algorithm
+
 use nom::{
     branch::alt, bytes::complete::tag, character::complete::digit1, combinator::map,
     multi::separated_list0, sequence::delimited, IResult,
