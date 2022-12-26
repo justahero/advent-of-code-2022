@@ -2,8 +2,6 @@
 
 use std::collections::HashSet;
 
-use itertools::Itertools;
-
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 #[repr(u8)]
 enum Direction {
@@ -96,26 +94,9 @@ impl Maze {
         }
     }
 
-    /// Calculates the least common mulitple of the dimensions
-    fn lcm(&self) -> i32 {
-        let field_size_x = self.width - 2;
-        let field_size_y = self.height - 2;
-
-        [
-            (field_size_x..).step_by(field_size_x as usize),
-            (field_size_y..).step_by(field_size_y as usize),
-        ]
-        .into_iter()
-        .kmerge()
-        .tuple_windows()
-        .find(|(a, b)| a == b)
-        .unwrap()
-        .0
-    }
-
     /// Returns all unique blizzard formations possible.
     pub fn all_blizzard_formations(&self) -> Vec<Vec<Blizzard>> {
-        let lcm = self.lcm();
+        let lcm = num::integer::lcm(self.width - 2, self.height - 2);
 
         let mut current = self.blizzards.clone();
         let mut blizzards = Vec::new();
@@ -218,6 +199,10 @@ fn part1(maze: &Maze) -> u32 {
     maze.shortest().expect("Failed to find path")
 }
 
+fn part2(maze: &Maze) -> u32 {
+    maze.shortest().expect("Failed to get path")
+}
+
 /// Parses the string, returns a map of monkey id to operation
 fn parse(input: &str) -> Maze {
     input
@@ -251,6 +236,7 @@ fn main() {
     let result = part1(&maze);
     assert!(146 < result);
     println!("Part 1: {}", result);
+    println!("Part 2: {}", part2(&maze));
 }
 
 #[cfg(test)]
@@ -297,6 +283,6 @@ mod tests {
     #[ignore]
     #[test]
     fn check_part2() {
-        // assert_eq!(20, part2(parse(INPUT)));
+        assert_eq!(54, part2(parse(INPUT)));
     }
 }
