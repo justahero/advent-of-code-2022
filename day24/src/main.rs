@@ -92,10 +92,10 @@ impl Maze {
     }
 
     /// Returns all unique blizzard formations possible.
-    pub fn get_blizzard_formations(&self, blizzards: Vec<Blizzard>) -> Vec<Vec<Blizzard>> {
+    pub fn get_blizzard_formations(&self, blizzards: &[Blizzard]) -> Vec<Vec<Blizzard>> {
         let lcm = num::integer::lcm(self.width - 2, self.height - 2);
 
-        let mut current = blizzards.clone();
+        let mut current = blizzards.to_vec();
         let mut blizzards = Vec::new();
 
         for _ in 0..lcm {
@@ -108,7 +108,13 @@ impl Maze {
     }
 
     /// Search the shortest path
-    pub fn shortest(&self, blizzards: Vec<Blizzard>) -> Option<u32> {
+    pub fn shortest(
+        &self,
+        steps: u32,
+        start: Pos,
+        end: Pos,
+        blizzards: &[Blizzard],
+    ) -> Option<u32> {
         let directions = [
             Pos::new(0, 0),
             Pos::new(0, -1),
@@ -118,14 +124,14 @@ impl Maze {
         ];
 
         let blizzards = self.get_blizzard_formations(blizzards);
-        let blizzards_len = blizzards.len();
+        let blizzards_len = blizzards.len() as u32;
 
-        let mut time = 0usize;
-        let mut current_positions = HashSet::from([self.start()]);
+        let mut time = steps;
+        let mut current_positions = HashSet::from([start]);
 
         loop {
             let mut next_positions: HashSet<Pos> = HashSet::new();
-            let next_blizzrds = &blizzards[(time + 1).rem_euclid(blizzards_len) as usize];
+            let next_blizzrds = &blizzards[(time).rem_euclid(blizzards_len) as usize];
 
             for pos in current_positions.into_iter() {
                 for dir in directions.iter() {
@@ -134,8 +140,8 @@ impl Maze {
                         continue;
                     }
 
-                    if next_pos == self.end() {
-                        return Some(time as u32 + 1);
+                    if next_pos == end {
+                        return Some(time as u32);
                     }
 
                     if next_blizzrds.iter().all(|b| b.pos != next_pos) {
@@ -146,7 +152,7 @@ impl Maze {
 
             current_positions = next_positions;
             if current_positions.is_empty() {
-                current_positions.insert(self.start());
+                current_positions.insert(start);
             }
 
             time += 1;
@@ -191,12 +197,30 @@ impl Maze {
 }
 
 /// Find the shortest path in the maze
-fn part1(maze: &Maze, blizzards: Vec<Blizzard>) -> u32 {
-    maze.shortest(blizzards).expect("Failed to find path")
+fn part1(maze: &Maze, blizzards: &[Blizzard]) -> u32 {
+    maze.shortest(1, maze.start(), maze.end(), blizzards)
+        .expect("Failed to find path")
 }
 
-fn part2(maze: &Maze, blizzards: Vec<Blizzard>) -> u32 {
-    maze.shortest(blizzards).expect("Failed to get path")
+fn part2(maze: &Maze, blizzards: &[Blizzard]) -> u32 {
+    let a = maze
+        .shortest(1, maze.start(), maze.end(), blizzards)
+        .expect("Failed to find path");
+    dbg!(a);
+
+    let b = maze
+        .shortest(a, maze.end(), maze.start(), blizzards)
+        .expect("Failed to find path");
+    dbg!(b);
+
+    let c = maze
+        .shortest(a + b, maze.start(), maze.end(), blizzards)
+        .expect("Failed to find path");
+    dbg!(c);
+
+    // TODO fix this
+
+    a + b + c
 }
 
 /// Parses the string, returns a map of monkey id to operation
@@ -234,10 +258,10 @@ fn parse(input: &str) -> (Maze, Vec<Blizzard>) {
 
 fn main() {
     let (maze, blizzards) = parse(include_str!("input.txt"));
-    let result = part1(&maze, blizzards.clone());
+    let result = part1(&maze, &blizzards);
     assert!(146 < result);
     println!("Part 1: {}", result);
-    println!("Part 2: {}", part2(&maze, blizzards));
+    println!("Part 2: {}", part2(&maze, &blizzards));
 }
 
 #[cfg(test)]
@@ -279,12 +303,12 @@ mod tests {
     #[test]
     fn check_part1() {
         let (maze, blizzards) = parse(INPUT);
-        assert_eq!(18, part1(&maze, blizzards));
+        assert_eq!(18, part1(&maze, &blizzards));
     }
 
     #[test]
     fn check_part2() {
         let (maze, blizzards) = parse(INPUT);
-        assert_eq!(54, part2(&maze, blizzards));
+        assert_eq!(54, part2(&maze, &blizzards));
     }
 }
