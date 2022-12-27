@@ -27,15 +27,6 @@ impl From<&str> for SnafuNumber {
         }
         SnafuNumber(number)
     }
-
-    /*
-    fn from(value: &str) -> Self {
-        let s = value.chars().map(|c| match c {
-
-        }).collect::<String>();
-        SnafuNumber(i64::from_str_radix(&s, 5))
-    }
-    */
 }
 
 impl SnafuNumber {
@@ -48,7 +39,13 @@ impl std::ops::Add for SnafuNumber {
     type Output = SnafuNumber;
 
     fn add(self, rhs: Self) -> Self::Output {
-        todo!()
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl std::ops::AddAssign for SnafuNumber {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
     }
 }
 
@@ -95,7 +92,9 @@ mod tests {
     }
 
     #[test]
-    fn check_part1() {}
+    fn check_part1() {
+        assert_eq!(SnafuNumber(4890).to_snafu(), part1(&parse(INPUT)));
+    }
 
     #[ignore]
     #[test]
