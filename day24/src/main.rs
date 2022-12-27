@@ -139,10 +139,6 @@ impl Maze {
             }
 
             current_positions = next_positions;
-            if current_positions.is_empty() {
-                current_positions.insert(start);
-            }
-
             time += 1;
         }
     }
@@ -194,19 +190,14 @@ fn part2(maze: &Maze, blizzards: &[Blizzard]) -> u32 {
     let a = maze
         .shortest(0, maze.start(), maze.end(), blizzards)
         .expect("Failed to find path");
-    dbg!(a);
 
     let b = maze
         .shortest(a, maze.end(), maze.start(), blizzards)
         .expect("Failed to find path");
-    dbg!(b);
 
     let c = maze
         .shortest(a + b, maze.start(), maze.end(), blizzards)
         .expect("Failed to find path");
-    dbg!(c);
-
-    // TODO fix this
 
     a + b + c
 }
