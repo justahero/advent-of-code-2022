@@ -31,7 +31,23 @@ impl From<&str> for SnafuNumber {
 
 impl SnafuNumber {
     pub fn to_snafu(&self) -> String {
-        todo!()
+        const DIGITS: [char; 5] = ['0', '1', '2', '=', '-'];
+
+        let mut result = Vec::new();
+        let mut decimal = self.0;
+
+        loop {
+            if decimal == 0 {
+                break;
+            }
+
+            let digit = DIGITS[decimal as usize % 5];
+            let new_decimal = (decimal + 2) / 5;
+            result.push(digit);
+            decimal = new_decimal;
+        }
+
+        result.iter().rev().collect()
     }
 }
 
@@ -92,8 +108,15 @@ mod tests {
     }
 
     #[test]
+    fn test_conversion_to_snafu() {
+        let number = SnafuNumber(4890);
+        assert_eq!("2=-1=0", &number.to_snafu());
+    }
+
+    #[test]
     fn check_part1() {
-        assert_eq!(SnafuNumber(4890).to_snafu(), part1(&parse(INPUT)));
+        let result = part1(&parse(INPUT));
+        assert_eq!(SnafuNumber(4890).to_snafu(), result);
     }
 
     #[ignore]
