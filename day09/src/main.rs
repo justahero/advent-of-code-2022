@@ -139,35 +139,6 @@ impl Grid {
             }
         }
     }
-
-    pub fn print_trail(&self) {
-        let (minx, maxx) = (-2, 7);
-        let (miny, maxy) = (-6, 3);
-
-        for y in miny..=maxy {
-            for x in minx..=maxx {
-                let pos = Pos::new(x, y);
-
-                // in case the pos is part of the rope
-                if let Some(index) = self.rope.iter().position(|&p| p == pos) {
-                    if index == 0 {
-                        print!("H");
-                    } else {
-                        print!("{}", index);
-                    }
-                } else if pos == Pos::new(0, 0) {
-                    print!("s");
-                } else {
-                    match self.trail.get(&pos) {
-                        Some(_) => print!("#"),
-                        None => print!("."),
-                    }
-                }
-            }
-            println!();
-        }
-        println!();
-    }
 }
 
 fn parse(input: &str) -> Vec<Move> {

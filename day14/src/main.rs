@@ -1,7 +1,6 @@
 //! Day 14: Regolith Reservoir
 
 use std::{
-    cmp::Ordering,
     collections::BTreeMap,
     fmt::{Display, Formatter},
 };
@@ -255,7 +254,7 @@ fn part2(mut grid: Grid) -> usize {
     grid.depth += 2;
     grid.min_x = 500 - grid.depth - 1;
     grid.max_x = 500 + grid.depth + 1;
-    
+
     // add bottom rock row to grid
     let y = grid.depth;
     for x in grid.min_x..=grid.max_x {
