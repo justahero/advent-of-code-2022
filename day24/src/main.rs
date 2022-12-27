@@ -11,18 +11,6 @@ enum Direction {
     West,
 }
 
-impl From<&str> for Direction {
-    fn from(v: &str) -> Self {
-        match v {
-            "^" => Direction::North,
-            ">" => Direction::East,
-            "<" => Direction::West,
-            "v" => Direction::South,
-            _ => panic!("Unknown direction found"),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[repr(u8)]
 enum Tile {
@@ -131,7 +119,7 @@ impl Maze {
 
         loop {
             let mut next_positions: HashSet<Pos> = HashSet::new();
-            let next_blizzrds = &blizzards[(time).rem_euclid(blizzards_len) as usize];
+            let next_blizzrds = &blizzards[(time + 1).rem_euclid(blizzards_len) as usize];
 
             for pos in current_positions.into_iter() {
                 for dir in directions.iter() {
@@ -141,7 +129,7 @@ impl Maze {
                     }
 
                     if next_pos == end {
-                        return Some(time as u32);
+                        return Some(time as u32 - steps + 1);
                     }
 
                     if next_blizzrds.iter().all(|b| b.pos != next_pos) {
@@ -198,13 +186,13 @@ impl Maze {
 
 /// Find the shortest path in the maze
 fn part1(maze: &Maze, blizzards: &[Blizzard]) -> u32 {
-    maze.shortest(1, maze.start(), maze.end(), blizzards)
+    maze.shortest(0, maze.start(), maze.end(), blizzards)
         .expect("Failed to find path")
 }
 
 fn part2(maze: &Maze, blizzards: &[Blizzard]) -> u32 {
     let a = maze
-        .shortest(1, maze.start(), maze.end(), blizzards)
+        .shortest(0, maze.start(), maze.end(), blizzards)
         .expect("Failed to find path");
     dbg!(a);
 
