@@ -1,7 +1,9 @@
 //! Day 12: Hill Climbing Algorithm
 
+use std::cmp::Ordering;
+
 use nom::{
-    branch::alt, bytes::complete::tag, character::complete::digit1, combinator::map,
+    branch::alt, bytes::complete::tag, character::complete::u8, combinator::map,
     multi::separated_list0, sequence::delimited, IResult,
 };
 
@@ -12,18 +14,8 @@ enum Entry {
     Int(u8),
 }
 
-impl Entry {
-    pub fn int(input: &str) -> Self {
-        Entry::Int(
-            format!("{}", input)
-                .parse::<u8>()
-                .expect("Failed to parse number"),
-        )
-    }
-}
-
 impl PartialOrd for Entry {
-    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         match (self, rhs) {
             (Entry::Int(l), Entry::Int(r)) => l.partial_cmp(r),
             (Entry::Int(l), Entry::List(r)) => vec![Entry::Int(*l)].partial_cmp(r),
@@ -37,9 +29,9 @@ fn parse_entry(input: &str) -> IResult<&str, Entry> {
     alt((
         map(
             delimited(tag("["), separated_list0(tag(","), parse_entry), tag("]")),
-            |inner| Entry::List(inner),
+            Entry::List,
         ),
-        map(digit1, Entry::int),
+        map(u8, Entry::Int),
     ))(input)
 }
 
@@ -50,27 +42,23 @@ impl From<&str> for Entry {
     }
 }
 
-fn part1(pairs: &[Entry]) -> u32 {
+fn part1(pairs: &[Entry]) -> usize {
     pairs
         .iter()
         .as_slice()
         .chunks(2)
         .enumerate()
-        .fold(0, |sum, (index, pair)| {
-            if &pair[0] < &pair[1] {
-                sum + 1 + index as u32
-            } else {
-                sum
-            }
-        })
+        .filter(|(_index, pair)| pair[0] < pair[1])
+        .map(|(index, _)| index + 1)
+        .sum()
 }
 
 fn part2(mut pairs: Vec<Entry>) -> usize {
-    let left: Entry = Entry::from("[[2]]");
-    let right: Entry = Entry::from("[[6]]");
+    let left = Entry::from("[[2]]");
+    let right = Entry::from("[[6]]");
 
-    pairs.push(Entry::from("[[2]]"));
-    pairs.push(Entry::from("[[6]]"));
+    pairs.push(left.clone());
+    pairs.push(right.clone());
     pairs.sort_unstable();
 
     let first = pairs.iter().position(|p| *p == left).unwrap() + 1;
