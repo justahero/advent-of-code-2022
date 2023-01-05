@@ -2,7 +2,6 @@
 
 use std::collections::BTreeMap;
 
-use itertools::Itertools;
 use nom::{
     bytes::complete::tag, character::complete::digit1, combinator::map_res, multi::separated_list1,
     sequence::tuple, IResult,
@@ -38,7 +37,7 @@ impl std::ops::Add for Pos {
     }
 }
 
-fn parse_pair(input: &str) -> IResult<&str, Pos> {
+fn parse_pos(input: &str) -> IResult<&str, Pos> {
     let (input, (x, _, y)) = tuple((
         map_res(digit1, str::parse::<i32>),
         tag(","),
@@ -48,7 +47,7 @@ fn parse_pair(input: &str) -> IResult<&str, Pos> {
 }
 
 fn parse_lines(input: &str) -> Vec<Pos> {
-    let (_, points) = separated_list1(tag(" -> "), parse_pair)(input).unwrap();
+    let (_, points) = separated_list1(tag(" -> "), parse_pos)(input).unwrap();
     points
 }
 
@@ -194,7 +193,7 @@ fn parse(input: &str) -> Grid {
         .map(str::trim)
         .filter(|&line| !line.is_empty())
         .map(parse_lines)
-        .collect_vec();
+        .collect::<Vec<_>>();
 
     Grid::build(lines)
 }
@@ -216,7 +215,7 @@ mod tests {
 
     #[test]
     fn check_parse_lines() {
-        assert_eq!(Pos::new(498, 4), parse_pair("498,4").unwrap().1);
+        assert_eq!(Pos::new(498, 4), parse_pos("498,4").unwrap().1);
         assert_eq!(
             vec![Pos::new(498, 4), Pos::new(498, 6), Pos::new(496, 6)],
             parse_lines("498,4 -> 498,6 -> 496,6")
