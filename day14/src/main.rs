@@ -27,13 +27,6 @@ impl Pos {
     }
 }
 
-impl std::ops::AddAssign for Pos {
-    fn add_assign(&mut self, rhs: Self) {
-        self.x += rhs.x;
-        self.y += rhs.y;
-    }
-}
-
 impl std::ops::Add for Pos {
     type Output = Pos;
 
@@ -41,17 +34,6 @@ impl std::ops::Add for Pos {
         Self {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
-        }
-    }
-}
-
-impl std::ops::Sub for Pos {
-    type Output = Pos;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self {
-            x: rhs.x - self.x,
-            y: rhs.y - self.y,
         }
     }
 }
