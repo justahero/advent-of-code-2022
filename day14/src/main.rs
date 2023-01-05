@@ -15,12 +15,6 @@ enum Cell {
     Sand,
 }
 
-impl Cell {
-    pub fn is_blocked(&self) -> bool {
-        matches!(self, Cell::Rock | Cell::Sand)
-    }
-}
-
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Copy, Clone)]
 struct Pos {
     x: i32,
@@ -125,12 +119,10 @@ impl Grid {
 
         loop {
             // advance one step in any direction
-            let next_pos = directions.iter().map(|dir| sand + *dir).find(|&next_pos| {
-                match self.get(&next_pos) {
-                    Some(cell) => !cell.is_blocked(),
-                    _ => true,
-                }
-            });
+            let next_pos = directions
+                .iter()
+                .map(|dir| sand + *dir)
+                .find(|&next_pos| self.get(&next_pos).is_none());
 
             match next_pos {
                 Some(pos) => {
