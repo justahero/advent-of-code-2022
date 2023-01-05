@@ -1,39 +1,17 @@
 //! Day 14: Regolith Reservoir
 
-use std::{
-    collections::BTreeMap,
-    fmt::{Display, Formatter},
-};
+use std::collections::BTreeMap;
 
-use itertools::Itertools;
 use nom::{
-    bytes::complete::tag, character::complete::digit1, combinator::map_res, multi::separated_list1,
-    sequence::tuple, IResult,
+    bytes::complete::tag, character::complete::i32, multi::separated_list1, sequence::tuple,
+    IResult,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 enum Cell {
     Rock = 0,
-    Air,
     Sand,
-}
-
-impl Cell {
-    pub fn is_blocked(&self) -> bool {
-        matches!(self, Cell::Rock | Cell::Sand)
-    }
-}
-
-impl Display for Cell {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Cell::Rock => "#",
-            Cell::Air => ".",
-            Cell::Sand => "o",
-        };
-        write!(f, "{}", s)
-    }
 }
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Copy, Clone)]
@@ -48,13 +26,6 @@ impl Pos {
     }
 }
 
-impl std::ops::AddAssign for Pos {
-    fn add_assign(&mut self, rhs: Self) {
-        self.x += rhs.x;
-        self.y += rhs.y;
-    }
-}
-
 impl std::ops::Add for Pos {
     type Output = Pos;
 
@@ -66,40 +37,14 @@ impl std::ops::Add for Pos {
     }
 }
 
-impl std::ops::Sub for Pos {
-    type Output = Pos;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self {
-            x: rhs.x - self.x,
-            y: rhs.y - self.y,
-        }
-    }
-}
-
-#[derive(Debug, Default, PartialEq, Eq)]
-struct PolyLine {
-    points: Vec<Pos>,
-}
-
-impl PolyLine {
-    pub fn new(points: Vec<Pos>) -> Self {
-        Self { points }
-    }
-}
-
-fn parse_pair(input: &str) -> IResult<&str, Pos> {
-    let (input, (x, _, y)) = tuple((
-        map_res(digit1, str::parse::<i32>),
-        tag(","),
-        map_res(digit1, str::parse::<i32>),
-    ))(input)?;
+fn parse_pos(input: &str) -> IResult<&str, Pos> {
+    let (input, (x, _, y)) = tuple((i32, tag(","), i32))(input)?;
     Ok((input, Pos::new(x, y)))
 }
 
-fn parse_lines(input: &str) -> PolyLine {
-    let (_, points) = separated_list1(tag(" -> "), parse_pair)(input).unwrap();
-    PolyLine::new(points)
+fn parse_line(input: &str) -> Vec<Pos> {
+    let (_, points) = separated_list1(tag(" -> "), parse_pos)(input).unwrap();
+    points
 }
 
 #[derive(Debug, Clone)]
@@ -114,7 +59,8 @@ struct Grid {
 }
 
 impl Grid {
-    pub fn new(cells: BTreeMap<Pos, Cell>, depth: i32) -> Self {
+    pub fn new(cells: BTreeMap<Pos, Cell>) -> Self {
+        let mut depth = i32::MIN;
         let mut min_x = i32::MAX;
         let mut max_x = i32::MIN;
 
@@ -122,6 +68,7 @@ impl Grid {
         for (pos, _) in cells.iter() {
             min_x = i32::min(min_x, pos.x);
             max_x = i32::max(max_x, pos.x);
+            depth = i32::max(depth, pos.y);
         }
 
         Self {
@@ -149,12 +96,10 @@ impl Grid {
 
         loop {
             // advance one step in any direction
-            let next_pos = directions.iter().map(|dir| sand + *dir).find(|&next_pos| {
-                match self.get(&next_pos) {
-                    Some(cell) => !cell.is_blocked(),
-                    _ => true,
-                }
-            });
+            let next_pos = directions
+                .iter()
+                .map(|dir| sand + *dir)
+                .find(|&next_pos| self.cells.get(&next_pos).is_none());
 
             match next_pos {
                 Some(pos) => {
@@ -176,21 +121,12 @@ impl Grid {
         false
     }
 
-    pub fn build(lines: Vec<PolyLine>) -> Self {
-        let mut depth = i32::MIN;
-
-        // get max depth, the abyss
-        for line in lines.iter() {
-            for pos in &line.points {
-                depth = i32::max(depth, pos.y);
-            }
-        }
-
+    pub fn build(lines: Vec<Vec<Pos>>) -> Self {
         let mut cells = BTreeMap::new();
 
         // mark the grid with blocks
         for line in lines.iter() {
-            for line in line.points.windows(2) {
+            for line in line.windows(2) {
                 if let [l, r] = line {
                     // vertical line
                     if l.x == r.x {
@@ -213,35 +149,12 @@ impl Grid {
             }
         }
 
-        Self::new(cells, depth)
-    }
-
-    /// Returns the cell at given coordinates.
-    /// The x-coordinate has to be adjusted by the bounds to fit in.
-    fn get(&self, pos: &Pos) -> Option<&Cell> {
-        self.cells.get(pos)
+        Self::new(cells)
     }
 
     /// Sets an Air cell to Sand
     fn set_cell(&mut self, pos: Pos, cell: Cell) {
         self.cells.insert(pos, cell);
-    }
-}
-
-impl Display for Grid {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let width = self.max_x - self.min_x;
-
-        for y in 0..=self.depth {
-            for x in 0..=width {
-                match self.cells.get(&Pos::new(x + self.min_x, y)) {
-                    Some(cell) => write!(f, "{}", cell)?,
-                    None => write!(f, "{}", Cell::Air)?,
-                }
-            }
-            writeln!(f)?;
-        }
-        writeln!(f)
     }
 }
 
@@ -269,8 +182,8 @@ fn parse(input: &str) -> Grid {
         .lines()
         .map(str::trim)
         .filter(|&line| !line.is_empty())
-        .map(parse_lines)
-        .collect_vec();
+        .map(parse_line)
+        .collect::<Vec<_>>();
 
     Grid::build(lines)
 }
@@ -292,12 +205,10 @@ mod tests {
 
     #[test]
     fn check_parse_lines() {
-        assert_eq!(Pos::new(498, 4), parse_pair("498,4").unwrap().1);
+        assert_eq!(Pos::new(498, 4), parse_pos("498,4").unwrap().1);
         assert_eq!(
-            PolyLine {
-                points: vec![Pos::new(498, 4), Pos::new(498, 6), Pos::new(496, 6)]
-            },
-            parse_lines("498,4 -> 498,6 -> 496,6")
+            vec![Pos::new(498, 4), Pos::new(498, 6), Pos::new(496, 6)],
+            parse_line("498,4 -> 498,6 -> 496,6")
         );
     }
 
