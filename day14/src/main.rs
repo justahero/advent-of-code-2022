@@ -62,17 +62,6 @@ impl std::ops::Sub for Pos {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
-struct PolyLine {
-    points: Vec<Pos>,
-}
-
-impl PolyLine {
-    pub fn new(points: Vec<Pos>) -> Self {
-        Self { points }
-    }
-}
-
 fn parse_pair(input: &str) -> IResult<&str, Pos> {
     let (input, (x, _, y)) = tuple((
         map_res(digit1, str::parse::<i32>),
@@ -82,9 +71,9 @@ fn parse_pair(input: &str) -> IResult<&str, Pos> {
     Ok((input, Pos::new(x, y)))
 }
 
-fn parse_lines(input: &str) -> PolyLine {
+fn parse_lines(input: &str) -> Vec<Pos> {
     let (_, points) = separated_list1(tag(" -> "), parse_pair)(input).unwrap();
-    PolyLine::new(points)
+    points
 }
 
 #[derive(Debug, Clone)]
@@ -163,12 +152,12 @@ impl Grid {
         false
     }
 
-    pub fn build(lines: Vec<PolyLine>) -> Self {
+    pub fn build(lines: Vec<Vec<Pos>>) -> Self {
         let mut cells = BTreeMap::new();
 
         // mark the grid with blocks
         for line in lines.iter() {
-            for line in line.points.windows(2) {
+            for line in line.windows(2) {
                 if let [l, r] = line {
                     // vertical line
                     if l.x == r.x {
@@ -255,9 +244,7 @@ mod tests {
     fn check_parse_lines() {
         assert_eq!(Pos::new(498, 4), parse_pair("498,4").unwrap().1);
         assert_eq!(
-            PolyLine {
-                points: vec![Pos::new(498, 4), Pos::new(498, 6), Pos::new(496, 6)]
-            },
+            vec![Pos::new(498, 4), Pos::new(498, 6), Pos::new(496, 6)],
             parse_lines("498,4 -> 498,6 -> 496,6")
         );
     }
