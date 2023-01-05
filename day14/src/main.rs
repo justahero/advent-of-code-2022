@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use nom::{
-    bytes::complete::tag, character::complete::digit1, combinator::map_res, multi::separated_list1,
-    sequence::tuple, IResult,
+    bytes::complete::tag, character::complete::i32, multi::separated_list1, sequence::tuple,
+    IResult,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,11 +38,7 @@ impl std::ops::Add for Pos {
 }
 
 fn parse_pos(input: &str) -> IResult<&str, Pos> {
-    let (input, (x, _, y)) = tuple((
-        map_res(digit1, str::parse::<i32>),
-        tag(","),
-        map_res(digit1, str::parse::<i32>),
-    ))(input)?;
+    let (input, (x, _, y)) = tuple((i32, tag(","), i32))(input)?;
     Ok((input, Pos::new(x, y)))
 }
 
