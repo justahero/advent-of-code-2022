@@ -1,9 +1,6 @@
 //! Day 14: Regolith Reservoir
 
-use std::{
-    collections::BTreeMap,
-    fmt::{Display, Formatter},
-};
+use std::collections::BTreeMap;
 
 use itertools::Itertools;
 use nom::{
@@ -15,24 +12,12 @@ use nom::{
 #[repr(u8)]
 enum Cell {
     Rock = 0,
-    Air,
     Sand,
 }
 
 impl Cell {
     pub fn is_blocked(&self) -> bool {
         matches!(self, Cell::Rock | Cell::Sand)
-    }
-}
-
-impl Display for Cell {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Cell::Rock => "#",
-            Cell::Air => ".",
-            Cell::Sand => "o",
-        };
-        write!(f, "{}", s)
     }
 }
 
@@ -114,7 +99,8 @@ struct Grid {
 }
 
 impl Grid {
-    pub fn new(cells: BTreeMap<Pos, Cell>, depth: i32) -> Self {
+    pub fn new(cells: BTreeMap<Pos, Cell>) -> Self {
+        let mut depth = i32::MIN;
         let mut min_x = i32::MAX;
         let mut max_x = i32::MIN;
 
@@ -122,6 +108,7 @@ impl Grid {
         for (pos, _) in cells.iter() {
             min_x = i32::min(min_x, pos.x);
             max_x = i32::max(max_x, pos.x);
+            depth = i32::max(depth, pos.y);
         }
 
         Self {
@@ -177,15 +164,6 @@ impl Grid {
     }
 
     pub fn build(lines: Vec<PolyLine>) -> Self {
-        let mut depth = i32::MIN;
-
-        // get max depth, the abyss
-        for line in lines.iter() {
-            for pos in &line.points {
-                depth = i32::max(depth, pos.y);
-            }
-        }
-
         let mut cells = BTreeMap::new();
 
         // mark the grid with blocks
@@ -213,7 +191,7 @@ impl Grid {
             }
         }
 
-        Self::new(cells, depth)
+        Self::new(cells)
     }
 
     /// Returns the cell at given coordinates.
@@ -225,23 +203,6 @@ impl Grid {
     /// Sets an Air cell to Sand
     fn set_cell(&mut self, pos: Pos, cell: Cell) {
         self.cells.insert(pos, cell);
-    }
-}
-
-impl Display for Grid {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let width = self.max_x - self.min_x;
-
-        for y in 0..=self.depth {
-            for x in 0..=width {
-                match self.cells.get(&Pos::new(x + self.min_x, y)) {
-                    Some(cell) => write!(f, "{}", cell)?,
-                    None => write!(f, "{}", Cell::Air)?,
-                }
-            }
-            writeln!(f)?;
-        }
-        writeln!(f)
     }
 }
 
