@@ -42,7 +42,7 @@ fn parse_pos(input: &str) -> IResult<&str, Pos> {
     Ok((input, Pos::new(x, y)))
 }
 
-fn parse_lines(input: &str) -> Vec<Pos> {
+fn parse_line(input: &str) -> Vec<Pos> {
     let (_, points) = separated_list1(tag(" -> "), parse_pos)(input).unwrap();
     points
 }
@@ -99,7 +99,7 @@ impl Grid {
             let next_pos = directions
                 .iter()
                 .map(|dir| sand + *dir)
-                .find(|&next_pos| self.get(&next_pos).is_none());
+                .find(|&next_pos| self.cells.get(&next_pos).is_none());
 
             match next_pos {
                 Some(pos) => {
@@ -152,12 +152,6 @@ impl Grid {
         Self::new(cells)
     }
 
-    /// Returns the cell at given coordinates.
-    /// The x-coordinate has to be adjusted by the bounds to fit in.
-    fn get(&self, pos: &Pos) -> Option<&Cell> {
-        self.cells.get(pos)
-    }
-
     /// Sets an Air cell to Sand
     fn set_cell(&mut self, pos: Pos, cell: Cell) {
         self.cells.insert(pos, cell);
@@ -188,7 +182,7 @@ fn parse(input: &str) -> Grid {
         .lines()
         .map(str::trim)
         .filter(|&line| !line.is_empty())
-        .map(parse_lines)
+        .map(parse_line)
         .collect::<Vec<_>>();
 
     Grid::build(lines)
@@ -214,7 +208,7 @@ mod tests {
         assert_eq!(Pos::new(498, 4), parse_pos("498,4").unwrap().1);
         assert_eq!(
             vec![Pos::new(498, 4), Pos::new(498, 6), Pos::new(496, 6)],
-            parse_lines("498,4 -> 498,6 -> 496,6")
+            parse_line("498,4 -> 498,6 -> 496,6")
         );
     }
 
